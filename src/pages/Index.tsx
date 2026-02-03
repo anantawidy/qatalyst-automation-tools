@@ -17,8 +17,7 @@ import Homepage from "@/components/Homepage";
 import Footer from "@/components/Footer";
 
 const Index = () => {
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true); // Auto-authenticated with Gemini
   const [showHomepage, setShowHomepage] = useState(true);
   const [activeTab, setActiveTab] = useState("generator");
   const [generatedGherkin, setGeneratedGherkin] = useState("");
@@ -29,16 +28,6 @@ const Index = () => {
   const [isHeadlessMode, setIsHeadlessMode] = useState(true);
   const [runningTestCases, setRunningTestCases] = useState<string[]>([]);
   const { toast } = useToast();
-
-  const handleAuthentication = (key: string) => {
-    setOpenaiKey(key);
-    setIsAuthenticated(true);
-    setShowHomepage(false);
-    toast({
-      title: "Authentication Success",
-      description: "OpenAI API Key has been configured successfully.",
-    });
-  };
 
   const handleGetStarted = () => {
     setShowHomepage(false);
@@ -256,101 +245,91 @@ const Index = () => {
               </h1>
             </div>
             <div className="flex items-center space-x-2">
-              {isAuthenticated && (
-                <div className="flex items-center space-x-2 text-sm text-green-400">
-                  <div className="h-2 w-2 rounded-full bg-green-400"></div>
-                  <span>API Connected</span>
-                </div>
-              )}
+              <div className="flex items-center space-x-2 text-sm text-green-400">
+                <div className="h-2 w-2 rounded-full bg-green-400"></div>
+                <span>Gemini Flash Connected</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-6 py-8">
-        {!isAuthenticated ? (
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <AuthenticationCard onAuthenticate={handleAuthentication} />
-          </div>
-        ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5 bg-slate-800 border-slate-700">
-              <TabsTrigger value="generator" className="data-[state=active]:bg-blue-600">
-                <FileText className="h-4 w-4 mr-2" />
-                Generator
-              </TabsTrigger>
-              <TabsTrigger value="playwright" className="data-[state=active]:bg-blue-600">
-                <Play className="h-4 w-4 mr-2" />
-                Playwright
-              </TabsTrigger>
-              <TabsTrigger value="management" className="data-[state=active]:bg-blue-600">
-                <Settings className="h-4 w-4 mr-2" />
-                Test Cases
-              </TabsTrigger>
-              <TabsTrigger value="execution" className="data-[state=active]:bg-blue-600">
-                <Play className="h-4 w-4 mr-2" />
-                Execute
-              </TabsTrigger>
-              <TabsTrigger value="export" className="data-[state=active]:bg-blue-600">
-                <GitBranch className="h-4 w-4 mr-2" />
-                Export
-              </TabsTrigger>
-            </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5 bg-slate-800 border-slate-700">
+            <TabsTrigger value="generator" className="data-[state=active]:bg-blue-600">
+              <FileText className="h-4 w-4 mr-2" />
+              Generator
+            </TabsTrigger>
+            <TabsTrigger value="playwright" className="data-[state=active]:bg-blue-600">
+              <Play className="h-4 w-4 mr-2" />
+              Playwright
+            </TabsTrigger>
+            <TabsTrigger value="management" className="data-[state=active]:bg-blue-600">
+              <Settings className="h-4 w-4 mr-2" />
+              Test Cases
+            </TabsTrigger>
+            <TabsTrigger value="execution" className="data-[state=active]:bg-blue-600">
+              <Play className="h-4 w-4 mr-2" />
+              Execute
+            </TabsTrigger>
+            <TabsTrigger value="export" className="data-[state=active]:bg-blue-600">
+              <GitBranch className="h-4 w-4 mr-2" />
+              Export
+            </TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="generator">
-              <GherkinGenerator 
-                apiKey={openaiKey}
-                onGherkinGenerated={handleGherkinGenerated}
-                onNavigateToPlaywright={() => setActiveTab("playwright")}
-                generatedGherkin={generatedGherkin}
-                onGherkinChange={setGeneratedGherkin}
-              />
-            </TabsContent>
+          <TabsContent value="generator">
+            <GherkinGenerator 
+              onGherkinGenerated={handleGherkinGenerated}
+              onNavigateToPlaywright={() => setActiveTab("playwright")}
+              generatedGherkin={generatedGherkin}
+              onGherkinChange={setGeneratedGherkin}
+            />
+          </TabsContent>
 
-            <TabsContent value="playwright">
-              <PlaywrightGenerator 
-                apiKey={openaiKey}
-                initialGherkin={generatedGherkin}
-                onPlaywrightGenerated={handlePlaywrightGenerated}
-                onNavigateToExecution={() => setActiveTab("execution")}
-                onExecutionResults={handleExecutionResults}
-                playwrightCode={playwrightCode}
-                onPlaywrightCodeChange={setPlaywrightCode}
-              />
-            </TabsContent>
+          <TabsContent value="playwright">
+            <PlaywrightGenerator 
+              initialGherkin={generatedGherkin}
+              onPlaywrightGenerated={handlePlaywrightGenerated}
+              onNavigateToExecution={() => setActiveTab("execution")}
+              onExecutionResults={handleExecutionResults}
+              playwrightCode={playwrightCode}
+              onPlaywrightCodeChange={setPlaywrightCode}
+            />
+          </TabsContent>
 
-            <TabsContent value="management">
-              <TestCaseManager 
-                testCases={testCases} 
-                onTestCasesChange={setTestCases}
-                onNavigateToGenerator={handleNavigateToGenerator}
-                onRunSelectedTests={handleRunSelectedTests}
-              />
-            </TabsContent>
+          <TabsContent value="management">
+            <TestCaseManager 
+              testCases={testCases} 
+              onTestCasesChange={setTestCases}
+              onNavigateToGenerator={handleNavigateToGenerator}
+              onRunSelectedTests={handleRunSelectedTests}
+            />
+          </TabsContent>
 
-            <TabsContent value="execution">
-              <ExecutionEngine 
-                executionResults={executionResults}
-                successPercentage={successPercentage}
-                isHeadlessMode={isHeadlessMode}
-                onHeadlessModeChange={setIsHeadlessMode}
-                onExecutionResults={handleExecutionResultsUpdate}
-                testCases={testCases}
-                runningTestCases={runningTestCases}
-              />
-            </TabsContent>
+          <TabsContent value="execution">
+            <ExecutionEngine 
+              executionResults={executionResults}
+              successPercentage={successPercentage}
+              isHeadlessMode={isHeadlessMode}
+              onHeadlessModeChange={setIsHeadlessMode}
+              onExecutionResults={handleExecutionResultsUpdate}
+              testCases={testCases}
+              runningTestCases={runningTestCases}
+            />
+          </TabsContent>
 
-            <TabsContent value="export">
-              <ExportManager 
-                gherkinContent={generatedGherkin}
-                playwrightCode={playwrightCode}
-                testCases={testCases}
-                executionResults={executionResults}
-                successPercentage={successPercentage}
-              />
-            </TabsContent>
-          </Tabs>
-        )}
+          <TabsContent value="export">
+            <ExportManager 
+              gherkinContent={generatedGherkin}
+              playwrightCode={playwrightCode}
+              testCases={testCases}
+              executionResults={executionResults}
+              successPercentage={successPercentage}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
       <Footer />
     </div>

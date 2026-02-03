@@ -5,9 +5,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Code, Play, Copy, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PlaywrightGeneratorProps {
-  apiKey: string;
   initialGherkin?: string;
   onPlaywrightGenerated?: (code: string) => void;
   onNavigateToExecution?: () => void;
@@ -17,7 +17,6 @@ interface PlaywrightGeneratorProps {
 }
 
 const PlaywrightGenerator = ({ 
-  apiKey, 
   initialGherkin = "",
   onPlaywrightGenerated,
   onNavigateToExecution,
@@ -70,75 +69,30 @@ const PlaywrightGenerator = ({
   };
 
   const generatePlaywrightCode = async (scenarioText: string, featureUrl: string) => {
-    console.log('🔑 API Key length:', apiKey ? apiKey.length : 0);
-    console.log('🌐 Making request to OpenAI API...');
+    console.log('🌐 Making request to Gemini Flash via edge function...');
     
-    const prompt = `
-You are a QA automation engineer.
+    const { data, error } = await supabase.functions.invoke('generate-playwright', {
+      body: { scenarioText, featureUrl }
+    });
 
-Given this Gherkin scenario (with URL as comment above it):
-# URL: ${featureUrl}
-
-${scenarioText}
-
-Write a Playwright test in JavaScript.
-
-Requirements:
-- Use Playwright Test syntax (import { test, expect } from '@playwright/test')
-- Don't include comments or explanations.
-- Implement meaningful locators if you can infer them (e.g., placeholder, label, button name).
-- Keep it in a single test() block for this scenario.
-`;
-
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-        }),
-      });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error Response:', errorText);
-        
-        let errorMessage = 'Failed to generate Playwright code from OpenAI';
-        
-        if (response.status === 401) {
-          errorMessage = 'Invalid OpenAI API key. Please check your authentication.';
-        } else if (response.status === 429) {
-          errorMessage = 'OpenAI API rate limit exceeded. Please try again later.';
-        } else if (response.status === 403) {
-          errorMessage = 'OpenAI API access forbidden. Check your API key permissions.';
-        } else if (response.status >= 500) {
-          errorMessage = 'OpenAI API server error. Please try again later.';
-        }
-        
-        throw new Error(`${errorMessage} (Status: ${response.status})`);
-      }
-
-      const data = await response.json();
-      console.log('✅ API Response received successfully');
-      
-      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-        console.error('❌ Invalid API response structure:', data);
-        throw new Error('Invalid response structure from OpenAI API');
-      }
-      
-      return data.choices[0].message.content.trim();
-    } catch (error) {
-      console.error('❌ Full error details:', error);
-      throw error;
+    if (error) {
+      console.error('❌ Edge function error:', error);
+      throw new Error('Failed to generate Playwright code');
     }
+
+    if (data.error) {
+      console.error('❌ AI error:', data.error);
+      if (data.error.includes('Rate limit')) {
+        throw new Error('RATE_LIMIT');
+      }
+      if (data.error.includes('Payment')) {
+        throw new Error('PAYMENT_REQUIRED');
+      }
+      throw new Error('AI_ERROR');
+    }
+
+    console.log('✅ Playwright code received successfully');
+    return data.code;
   };
 
   const convertToPlaywright = async () => {
@@ -182,8 +136,8 @@ Requirements:
         } catch (error) {
           console.error(`Error generating code for scenario: ${title}`, error);
           
-          if (error.message && error.message.includes('Invalid OpenAI API key')) {
-            throw error; // Re-throw to be caught by outer catch block
+          if (error.message === 'RATE_LIMIT' || error.message === 'PAYMENT_REQUIRED') {
+            throw error;
           }
           
           allTests += `// ❌ Error generating code for: ${title}\ntest('${title}', async () => {\n  // Code generation failed\n});\n\n`;
@@ -197,15 +151,21 @@ Requirements:
       
       toast({
         title: "Playwright Code Generated",
-        description: `Successfully converted ${scenarios.length} Gherkin scenarios to Playwright tests!`,
+        description: `Successfully converted ${scenarios.length} Gherkin scenarios using Gemini Flash!`,
       });
     } catch (error) {
       console.error('Error converting Gherkin to Playwright:', error);
       
-      if (error.message && error.message.includes('Invalid OpenAI API key')) {
+      if (error.message === 'RATE_LIMIT') {
         toast({
-          title: "Invalid API Key",
-          description: "Your OpenAI API key is incorrect. Please check your key and try again.",
+          title: "Rate Limit Exceeded",
+          description: "Too many requests. Please try again in a moment.",
+          variant: "destructive",
+        });
+      } else if (error.message === 'PAYMENT_REQUIRED') {
+        toast({
+          title: "Credits Required",
+          description: "Please add credits to continue using AI features.",
           variant: "destructive",
         });
       } else {
