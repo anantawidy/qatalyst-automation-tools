@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wand2, Copy, Upload, FileText, X, Play, Link, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import Papa from 'papaparse';
 
 interface GherkinGeneratorProps {
-  apiKey: string;
   onGherkinGenerated?: (gherkin: string, title: string) => void;
   onNavigateToPlaywright?: () => void;
   generatedGherkin?: string;
@@ -19,7 +19,6 @@ interface GherkinGeneratorProps {
 }
 
 const GherkinGenerator = ({ 
-  apiKey, 
   onGherkinGenerated, 
   onNavigateToPlaywright,
   generatedGherkin: initialGherkin = "",
@@ -51,48 +50,28 @@ const GherkinGenerator = ({
     return 'Generated Test Case';
   };
 
-  const generateGherkinFromOpenAI = async (url: string, scenarioDesc: string) => {
-    const prompt = `
-You are a QA engineer generating test scenarios.
-
-Generate a Gherkin feature file based on this info:
-URL: ${url}
-Scenario description: ${scenarioDesc}
-
-Requirements:
-- Include a clear and concise Feature title.
-- Break down the description into multiple independent Scenarios (not too big).
-- Each Scenario must follow the real user flow logically from start to finish.
-- Each Scenario must have Given, When, Then steps.
-- Use meaningful step details (e.g., "Given the user navigates to the login page", 
-  "When the user fills 'username' with 'validUser'").
-- Be specific with actions and expected results, not generic.
-- Use actual UI references if possible (buttons, fields, labels).
-- Output ONLY the Gherkin content without explanation.
-`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-      }),
+  const generateGherkinFromAI = async (url: string, scenarioDesc: string) => {
+    const { data, error } = await supabase.functions.invoke('generate-gherkin', {
+      body: { url, scenarioDesc }
     });
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('INVALID_API_KEY');
-      }
-      throw new Error('Failed to generate Gherkin from OpenAI');
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error('AI_ERROR');
     }
 
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
+    if (data.error) {
+      console.error('AI error:', data.error);
+      if (data.error.includes('Rate limit')) {
+        throw new Error('RATE_LIMIT');
+      }
+      if (data.error.includes('Payment')) {
+        throw new Error('PAYMENT_REQUIRED');
+      }
+      throw new Error('AI_ERROR');
+    }
+
+    return data.gherkin;
   };
 
   const generateFromUrl = async () => {
@@ -116,7 +95,7 @@ Requirements:
     
     setIsGenerating(true);
     try {
-      const gherkin = await generateGherkinFromOpenAI(url, scenarioDesc);
+      const gherkin = await generateGherkinFromAI(url, scenarioDesc);
       const gherkinWithComment = `# URL: ${url}\n${gherkin}`;
       
       handleGherkinChange(gherkinWithComment);
@@ -125,15 +104,24 @@ Requirements:
       
       toast({
         title: "Gherkin Generated",
-        description: "Test scenarios have been successfully generated from URL!",
+        description: "Test scenarios have been successfully generated using Gemini Flash!",
       });
     } catch (error) {
-      console.error('OpenAI API Error:', error);
+      console.error('AI API Error:', error);
       
-      if (error.message === 'INVALID_API_KEY') {
+      if (error.message === 'RATE_LIMIT') {
         toast({
-          title: "Invalid API Key",
-          description: "Your OpenAI API key is incorrect. Please check your key and try again.",
+          title: "Rate Limit Exceeded",
+          description: "Too many requests. Please try again in a moment.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (error.message === 'PAYMENT_REQUIRED') {
+        toast({
+          title: "Credits Required",
+          description: "Please add credits to continue using AI features.",
           variant: "destructive",
         });
         return;
@@ -163,7 +151,7 @@ Feature: ${scenarioDesc}
       
       toast({
         title: "Gherkin Generated (Fallback)",
-        description: "Test scenarios generated using fallback method. Configure OpenAI API for better results.",
+        description: "Test scenarios generated using fallback method.",
       });
     } finally {
       setIsGenerating(false);
