@@ -19,7 +19,7 @@ serve(async (req) => {
     }
 
     const prompt = `
-You are a QA automation engineer.
+You are a senior QA automation engineer expert in Cypress.
 
 Given this test data:
 
@@ -32,17 +32,36 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Write Cypress tests in JavaScript.
+Generate Cypress test code using Mocha structure with custom commands. Output TWO separate files:
 
-Requirements:
-- Use Cypress test syntax with describe() and it() blocks
-- Use cy.get(), cy.contains(), cy.visit() for navigation and selection
-- Use the provided locators for element selection
-- Use the provided test data for input values
-- Create a separate it() block for each test case
-- Include proper assertions with should()
-- Don't include comments or explanations
-- Output only the code
+**REQUIREMENTS:**
+1. Use Cypress with Mocha test runner (describe, it, before, beforeEach)
+2. Create a Commands file (for cypress/support/commands.js) with:
+   - Custom commands for reusable actions (cy.login, cy.fillForm, etc.)
+   - All locators defined as constants at the top
+   - Use Cypress.Commands.add() syntax
+   - Chain commands properly
+3. Create a Test file (spec file) with:
+   - Use describe() and it() blocks
+   - before() hook for one-time setup (visit page)
+   - All test cases in the same describe block share browser session
+   - Call custom commands instead of direct cy.get() where possible
+   - Use proper Cypress assertions (.should())
+4. Use cy.get(), cy.contains(), cy.find() for element selection
+5. Leverage Cypress auto-waiting (no explicit waits)
+
+**OUTPUT FORMAT:**
+Output exactly in this format with the separators:
+
+===PAGE_OBJECT_START===
+// Custom Commands file content here (for cypress/support/commands.js)
+===PAGE_OBJECT_END===
+
+===TEST_FILE_START===
+// Test spec file content here
+===TEST_FILE_END===
+
+Do not include any other text, comments, or markdown code blocks.
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -77,14 +96,21 @@ Requirements:
     }
 
     const data = await response.json();
-    const code = data.choices?.[0]?.message?.content?.trim();
+    const content = data.choices?.[0]?.message?.content?.trim();
 
-    if (!code) {
+    if (!content) {
       throw new Error("No content received from AI");
     }
 
+    // Parse the two files from the response
+    const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
+    const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
+
+    const pageObject = pageObjectMatch?.[1]?.trim() || '';
+    const testFile = testFileMatch?.[1]?.trim() || '';
+
     return new Response(
-      JSON.stringify({ code }),
+      JSON.stringify({ pageObject, testFile }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
