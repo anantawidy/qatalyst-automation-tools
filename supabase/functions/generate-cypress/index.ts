@@ -32,23 +32,45 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate Cypress test code using Mocha structure with custom commands. Output TWO separate files:
+Generate Cypress test code with THREE separate outputs:
 
 **REQUIREMENTS:**
-1. Use Cypress with Mocha test runner (describe, it, before, beforeEach)
-2. Create a Commands file (for cypress/support/commands.js) with:
-   - Custom commands for reusable actions (cy.login, cy.fillForm, etc.)
-   - All locators defined as constants at the top
-   - Use Cypress.Commands.add() syntax
-   - Chain commands properly
-3. Create a Test file (spec file) with:
-   - Use describe() and it() blocks
-   - before() hook for one-time setup (visit page)
-   - All test cases in the same describe block share browser session
-   - Call custom commands instead of direct cy.get() where possible
-   - Use proper Cypress assertions (.should())
-4. Use cy.get(), cy.contains(), cy.find() for element selection
-5. Leverage Cypress auto-waiting (no explicit waits)
+1. Use Cypress with Mocha structure (describe, it)
+2. Implement reusable actions as Cypress Custom Commands in commands.js
+3. Page-specific locators should live in a dedicated Page Object file (not inside tests)
+4. Tests should be clean and high-level, calling custom commands rather than repeating UI steps
+5. Avoid hardcoded waits; use Cypress assertions and automatic retries
+6. DO NOT hardcode locators or test data inside test files
+
+**PAGE OBJECT FILE (commands.js):**
+- Custom commands for reusable actions (Cypress.Commands.add())
+- All locators defined as constants at the top
+- Chain commands properly
+- Examples: cy.login(), cy.fillForm(), cy.verifyError()
+
+**TEST FILE (spec file):**
+- Use describe() and it() blocks
+- before() hook for one-time setup (visit page)
+- All test cases in the same describe block share browser session
+- Call custom commands instead of direct cy.get() where possible
+- Use proper Cypress assertions (.should())
+- NO hardcoded test data - load from fixture
+
+**DATA FILE (testData.json):**
+- Valid JSON with flat global structure (not nested per-scenario)
+- Store all test data: username, password, invalidUsername, invalidPassword, emptyUsername, emptyPassword, errorMessage, etc.
+- Load via cy.fixture('testData') or import
+
+Example data structure:
+{
+  "username": "testuser",
+  "password": "password123",
+  "invalidUsername": "wronguser",
+  "invalidPassword": "wrongpass",
+  "emptyUsername": "",
+  "emptyPassword": "",
+  "errorMessage": "Invalid credentials"
+}
 
 **OUTPUT FORMAT:**
 Output exactly in this format with the separators:
@@ -60,6 +82,10 @@ Output exactly in this format with the separators:
 ===TEST_FILE_START===
 // Test spec file content here
 ===TEST_FILE_END===
+
+===DATA_FILE_START===
+// JSON data file content here (for cypress/fixtures/testData.json)
+===DATA_FILE_END===
 
 Do not include any other text, comments, or markdown code blocks.
 `;
@@ -102,15 +128,17 @@ Do not include any other text, comments, or markdown code blocks.
       throw new Error("No content received from AI");
     }
 
-    // Parse the two files from the response
+    // Parse the three files from the response
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
     const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
+    const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     const pageObject = pageObjectMatch?.[1]?.trim() || '';
     const testFile = testFileMatch?.[1]?.trim() || '';
+    const dataFile = dataFileMatch?.[1]?.trim() || '';
 
     return new Response(
-      JSON.stringify({ pageObject, testFile }),
+      JSON.stringify({ pageObject, testFile, dataFile }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

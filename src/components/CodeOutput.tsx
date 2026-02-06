@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Download, Code, FileText, Loader2, Check, FileCode } from "lucide-react";
+import { Copy, Download, Code, FileText, Loader2, Check, FileCode, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TestCaseData } from "./CsvUploader";
@@ -13,6 +13,7 @@ type OutputType = "gherkin" | "playwright" | "selenium" | "cypress";
 interface GeneratedCode {
   pageObject: string;
   testFile: string;
+  dataFile: string;
 }
 
 interface CodeOutputProps {
@@ -32,11 +33,12 @@ const CodeOutput = ({
   isGenerating,
   setIsGenerating
 }: CodeOutputProps) => {
-  const [pomCode, setPomCode] = useState<GeneratedCode>({ pageObject: '', testFile: '' });
+  const [pomCode, setPomCode] = useState<GeneratedCode>({ pageObject: '', testFile: '', dataFile: '' });
   const [gherkinCode, setGherkinCode] = useState(generatedCode);
-  const [activeTab, setActiveTab] = useState<"pageObject" | "testFile">("pageObject");
+  const [activeTab, setActiveTab] = useState<"pageObject" | "testFile" | "dataFile">("pageObject");
   const [copiedPO, setCopiedPO] = useState(false);
   const [copiedTest, setCopiedTest] = useState(false);
+  const [copiedData, setCopiedData] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -121,19 +123,21 @@ const CodeOutput = ({
       const cleanCode = (code: string) => code
         .replace(/```javascript/g, '')
         .replace(/```typescript/g, '')
+        .replace(/```json/g, '')
         .replace(/```js/g, '')
         .replace(/```/g, '')
         .trim();
 
       const pageObject = cleanCode(data.pageObject || '');
       const testFile = cleanCode(data.testFile || '');
+      const dataFile = cleanCode(data.dataFile || '');
 
-      setPomCode({ pageObject, testFile });
-      onCodeGenerated(JSON.stringify({ pageObject, testFile }));
+      setPomCode({ pageObject, testFile, dataFile });
+      onCodeGenerated(JSON.stringify({ pageObject, testFile, dataFile }));
       
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
-        description: `Page Object and Test file generated successfully.`,
+        description: `Page Object, Test file, and Data file generated successfully.`,
       });
     } catch (err) {
       console.error(`Error generating ${type}:`, err);
@@ -141,7 +145,7 @@ const CodeOutput = ({
     }
   };
 
-  const copyToClipboard = (code: string, which: "po" | "test" | "gherkin") => {
+  const copyToClipboard = (code: string, which: "po" | "test" | "data" | "gherkin") => {
     navigator.clipboard.writeText(code);
     if (which === "po") {
       setCopiedPO(true);
@@ -149,6 +153,9 @@ const CodeOutput = ({
     } else if (which === "test") {
       setCopiedTest(true);
       setTimeout(() => setCopiedTest(false), 2000);
+    } else if (which === "data") {
+      setCopiedData(true);
+      setTimeout(() => setCopiedData(false), 2000);
     }
     toast({
       title: "Copied!",
@@ -176,13 +183,13 @@ const CodeOutput = ({
   const getFileNames = () => {
     switch (type) {
       case "playwright":
-        return { pageObject: "LoginPage.ts", testFile: "login.spec.ts" };
+        return { pageObject: "LoginPage.ts", testFile: "login.spec.ts", dataFile: "testData.json" };
       case "selenium":
-        return { pageObject: "LoginPage.js", testFile: "login.test.js" };
+        return { pageObject: "LoginPage.js", testFile: "login.test.js", dataFile: "testData.json" };
       case "cypress":
-        return { pageObject: "commands.js", testFile: "login.cy.js" };
+        return { pageObject: "commands.js", testFile: "login.cy.js", dataFile: "testData.json" };
       default:
-        return { pageObject: "page.js", testFile: "test.js" };
+        return { pageObject: "page.js", testFile: "test.js", dataFile: "testData.json" };
     }
   };
 
@@ -270,7 +277,7 @@ const CodeOutput = ({
     );
   }
 
-  // POM output (two files)
+  // POM output (three files)
   return (
     <Card className="bg-slate-800 border-slate-700">
       <CardHeader className="pb-3">
@@ -281,14 +288,14 @@ const CodeOutput = ({
               <span className="ml-2">{typeInfo.title}</span>
             </CardTitle>
             <CardDescription className="text-slate-400 text-sm">
-              Page Object Model with separate test file
+              Page Object Model with separate test and data files
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-          <TabsList className="grid w-full grid-cols-2 bg-slate-700 mb-4">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-700 mb-4">
             <TabsTrigger value="pageObject" className="data-[state=active]:bg-blue-600">
               <FileCode className="h-4 w-4 mr-2" />
               {type === "cypress" ? "Commands" : "Page Object"}
@@ -296,6 +303,10 @@ const CodeOutput = ({
             <TabsTrigger value="testFile" className="data-[state=active]:bg-blue-600">
               <Code className="h-4 w-4 mr-2" />
               Test File
+            </TabsTrigger>
+            <TabsTrigger value="dataFile" className="data-[state=active]:bg-blue-600">
+              <Database className="h-4 w-4 mr-2" />
+              Data File
             </TabsTrigger>
           </TabsList>
 
@@ -356,6 +367,36 @@ const CodeOutput = ({
               onChange={(e) => setPomCode(prev => ({ ...prev, testFile: e.target.value }))}
               className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none ${typeInfo.color}`}
               placeholder="Test file code will appear here..."
+            />
+          </TabsContent>
+
+          <TabsContent value="dataFile" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400 font-mono">/data/{fileNames.dataFile}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(pomCode.dataFile, "data")}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  {copiedData ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadCode(pomCode.dataFile, fileNames.dataFile)}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              value={pomCode.dataFile}
+              onChange={(e) => setPomCode(prev => ({ ...prev, dataFile: e.target.value }))}
+              className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none text-yellow-300`}
+              placeholder="JSON data file will appear here..."
             />
           </TabsContent>
         </Tabs>
