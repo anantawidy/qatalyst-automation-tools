@@ -32,23 +32,45 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate Playwright test code using Page Object Model (POM) pattern. Output TWO separate files:
+Generate Playwright test code with THREE separate outputs:
 
 **REQUIREMENTS:**
-1. Use Playwright Test Runner syntax
-2. Create a Page Object class with:
-   - All locators as class properties
-   - Reusable action methods (login, fillForm, clickButton, etc.)
-   - Use getByRole, getByLabel, getByPlaceholder, getByText where possible
-   - Fallback to locator() for CSS/XPath selectors
-3. Create a Test file with:
-   - Single page instance created in beforeAll hook
-   - All test cases share the same page instance
-   - Use describe() block for grouping
-   - Each test case as separate test() block
-   - Call Page Object methods instead of direct interactions
-4. Use auto-waiting (no explicit waits)
-5. Use specific assertions (toHaveURL, toContainText, toBeVisible)
+1. Use Playwright Test Runner (@playwright/test)
+2. Must implement Page Object Model (POM)
+3. Each test file should create ONE page instance per file (not global across multiple files)
+4. Use beforeEach to instantiate the Page Object
+5. All assertions should preferably be inside the Page Object methods
+6. DO NOT hardcode locators or test data inside test files
+
+**PAGE OBJECT FILE:**
+- All locators as class properties (imported or defined)
+- Reusable action methods (login, fillForm, clickButton, etc.)
+- Use getByRole, getByLabel, getByPlaceholder, getByText where possible
+- Fallback to locator() for CSS/XPath selectors
+- Import test data from data file
+
+**TEST FILE:**
+- Clean and high-level, calling Page Object methods
+- Use describe() block for grouping
+- Each test case as separate test() block
+- Use beforeEach to create Page Object instance
+- NO hardcoded test data - reference data file values
+
+**DATA FILE (testData.json):**
+- Valid JSON with flat global structure (not nested per-scenario)
+- Store all test data: username, password, invalidUsername, invalidPassword, emptyUsername, emptyPassword, errorMessage, etc.
+- Tests reference these fields explicitly
+
+Example data structure:
+{
+  "username": "testuser",
+  "password": "password123",
+  "invalidUsername": "wronguser",
+  "invalidPassword": "wrongpass",
+  "emptyUsername": "",
+  "emptyPassword": "",
+  "errorMessage": "Invalid credentials"
+}
 
 **OUTPUT FORMAT:**
 Output exactly in this format with the separators:
@@ -60,6 +82,10 @@ Output exactly in this format with the separators:
 ===TEST_FILE_START===
 // Test file content here
 ===TEST_FILE_END===
+
+===DATA_FILE_START===
+// JSON data file content here
+===DATA_FILE_END===
 
 Do not include any other text, comments, or markdown code blocks.
 `;
@@ -102,15 +128,17 @@ Do not include any other text, comments, or markdown code blocks.
       throw new Error("No content received from AI");
     }
 
-    // Parse the two files from the response
+    // Parse the three files from the response
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
     const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
+    const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     const pageObject = pageObjectMatch?.[1]?.trim() || '';
     const testFile = testFileMatch?.[1]?.trim() || '';
+    const dataFile = dataFileMatch?.[1]?.trim() || '';
 
     return new Response(
-      JSON.stringify({ pageObject, testFile }),
+      JSON.stringify({ pageObject, testFile, dataFile }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

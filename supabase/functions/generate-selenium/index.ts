@@ -32,24 +32,49 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate Selenium WebDriver test code using Page Object Model (POM) pattern with Mocha. Output TWO separate files:
+Generate Selenium WebDriver test code with THREE separate outputs:
 
 **REQUIREMENTS:**
-1. Use Selenium WebDriver with Mocha test runner
-2. Create a Page Object class with:
-   - Constructor that accepts driver instance
-   - All locators as class properties using By.css(), By.id(), By.xpath()
-   - Reusable action methods (login, fillForm, clickButton, waitForElement, etc.)
-   - Proper async/await handling
-3. Create a Test file with:
-   - Single WebDriver instance created in before() hook
-   - Driver quit in after() hook
-   - All test cases share the same driver instance
-   - Use describe() and it() blocks
-   - Import and instantiate Page Object
-   - Call Page Object methods instead of direct interactions
-4. Use proper explicit waits with until.elementLocated()
-5. Include proper assertions with assert or chai
+1. Use Selenium WebDriver with JavaScript
+2. Must use Mocha as test runner + Chai for assertions
+3. Must implement Page Object Model (POM)
+4. Use a SINGLE shared WebDriver instance initialized in before() for all test cases
+5. Do NOT create a new driver per test
+6. All reusable actions and assertions must live inside the Page Object, not in the test file
+7. Test file should only call Page Object methods
+8. DO NOT hardcode locators or test data inside test files
+
+**PAGE OBJECT FILE:**
+- Constructor that accepts driver instance
+- All locators as class properties using By.css(), By.id(), By.xpath()
+- Reusable action methods (login, fillForm, clickButton, waitForElement, etc.)
+- Proper async/await handling
+- Import test data from data file
+
+**TEST FILE:**
+- Single WebDriver instance created in before() hook
+- Driver quit in after() hook
+- All test cases share the same driver instance
+- Use describe() and it() blocks
+- Import and instantiate Page Object
+- Call Page Object methods instead of direct interactions
+- NO hardcoded test data - reference data file values
+
+**DATA FILE (testData.json):**
+- Valid JSON with flat global structure (not nested per-scenario)
+- Store all test data: username, password, invalidUsername, invalidPassword, emptyUsername, emptyPassword, errorMessage, etc.
+- Tests reference these fields explicitly
+
+Example data structure:
+{
+  "username": "testuser",
+  "password": "password123",
+  "invalidUsername": "wronguser",
+  "invalidPassword": "wrongpass",
+  "emptyUsername": "",
+  "emptyPassword": "",
+  "errorMessage": "Invalid credentials"
+}
 
 **OUTPUT FORMAT:**
 Output exactly in this format with the separators:
@@ -61,6 +86,10 @@ Output exactly in this format with the separators:
 ===TEST_FILE_START===
 // Test file content here
 ===TEST_FILE_END===
+
+===DATA_FILE_START===
+// JSON data file content here
+===DATA_FILE_END===
 
 Do not include any other text, comments, or markdown code blocks.
 `;
@@ -103,15 +132,17 @@ Do not include any other text, comments, or markdown code blocks.
       throw new Error("No content received from AI");
     }
 
-    // Parse the two files from the response
+    // Parse the three files from the response
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
     const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
+    const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     const pageObject = pageObjectMatch?.[1]?.trim() || '';
     const testFile = testFileMatch?.[1]?.trim() || '';
+    const dataFile = dataFileMatch?.[1]?.trim() || '';
 
     return new Response(
-      JSON.stringify({ pageObject, testFile }),
+      JSON.stringify({ pageObject, testFile, dataFile }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
