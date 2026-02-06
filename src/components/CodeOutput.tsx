@@ -2,12 +2,18 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Download, Code, FileText, Loader2, Check } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Copy, Download, Code, FileText, Loader2, Check, FileCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TestCaseData } from "./CsvUploader";
 
 type OutputType = "gherkin" | "playwright" | "selenium" | "cypress";
+
+interface GeneratedCode {
+  pageObject: string;
+  testFile: string;
+}
 
 interface CodeOutputProps {
   type: OutputType;
@@ -26,13 +32,18 @@ const CodeOutput = ({
   isGenerating,
   setIsGenerating
 }: CodeOutputProps) => {
-  const [code, setCode] = useState(generatedCode);
-  const [copied, setCopied] = useState(false);
+  const [pomCode, setPomCode] = useState<GeneratedCode>({ pageObject: '', testFile: '' });
+  const [gherkinCode, setGherkinCode] = useState(generatedCode);
+  const [activeTab, setActiveTab] = useState<"pageObject" | "testFile">("pageObject");
+  const [copiedPO, setCopiedPO] = useState(false);
+  const [copiedTest, setCopiedTest] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    setCode(generatedCode);
-  }, [generatedCode]);
+    if (type === "gherkin") {
+      setGherkinCode(generatedCode);
+    }
+  }, [generatedCode, type]);
 
   useEffect(() => {
     if (!generatedCode && testData.testCases.length > 0) {
@@ -72,16 +83,16 @@ const CodeOutput = ({
 `;
 
     testData.testCases.forEach((tc) => {
-      gherkin += `  Scenario: ${tc.description || tc.id}
+      gherkin += `  Scenario: ${tc.id} - ${tc.steps?.split(' ').slice(0, 5).join(' ') || 'Test scenario'}
     Given the system is ready
-    When ${tc.step || 'I execute the test action'}
+    When ${tc.steps || 'I execute the test action'}
     Then ${tc.expected || 'the expected result should occur'}
 
 `;
     });
 
     const finalCode = gherkin.trim();
-    setCode(finalCode);
+    setGherkinCode(finalCode);
     onCodeGenerated(finalCode);
     
     toast({
@@ -107,18 +118,22 @@ const CodeOutput = ({
         throw new Error(data?.error || error?.message || 'Unknown error');
       }
 
-      const cleanedCode = data.code
+      const cleanCode = (code: string) => code
         .replace(/```javascript/g, '')
         .replace(/```typescript/g, '')
+        .replace(/```js/g, '')
         .replace(/```/g, '')
         .trim();
 
-      setCode(cleanedCode);
-      onCodeGenerated(cleanedCode);
+      const pageObject = cleanCode(data.pageObject || '');
+      const testFile = cleanCode(data.testFile || '');
+
+      setPomCode({ pageObject, testFile });
+      onCodeGenerated(JSON.stringify({ pageObject, testFile }));
       
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
-        description: `Code generated successfully using Gemini Flash.`,
+        description: `Page Object and Test file generated successfully.`,
       });
     } catch (err) {
       console.error(`Error generating ${type}:`, err);
@@ -126,29 +141,27 @@ const CodeOutput = ({
     }
   };
 
-  const copyToClipboard = () => {
+  const copyToClipboard = (code: string, which: "po" | "test" | "gherkin") => {
     navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (which === "po") {
+      setCopiedPO(true);
+      setTimeout(() => setCopiedPO(false), 2000);
+    } else if (which === "test") {
+      setCopiedTest(true);
+      setTimeout(() => setCopiedTest(false), 2000);
+    }
     toast({
       title: "Copied!",
       description: "Code copied to clipboard.",
     });
   };
 
-  const downloadCode = () => {
-    const extensions: Record<OutputType, string> = {
-      gherkin: "feature",
-      playwright: "spec.js",
-      selenium: "test.js",
-      cypress: "cy.js"
-    };
-    
+  const downloadCode = (code: string, filename: string) => {
     const blob = new Blob([code], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `test-automation.${extensions[type]}`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -156,8 +169,21 @@ const CodeOutput = ({
     
     toast({
       title: "File Downloaded",
-      description: `test-automation.${extensions[type]} downloaded.`,
+      description: `${filename} downloaded.`,
     });
+  };
+
+  const getFileNames = () => {
+    switch (type) {
+      case "playwright":
+        return { pageObject: "LoginPage.ts", testFile: "login.spec.ts" };
+      case "selenium":
+        return { pageObject: "LoginPage.js", testFile: "login.test.js" };
+      case "cypress":
+        return { pageObject: "commands.js", testFile: "login.cy.js" };
+      default:
+        return { pageObject: "page.js", testFile: "test.js" };
+    }
   };
 
   const getTypeInfo = () => {
@@ -165,15 +191,16 @@ const CodeOutput = ({
       case "gherkin":
         return { icon: <FileText className="h-5 w-5 text-purple-400" />, title: "Gherkin Scenarios", color: "text-purple-300" };
       case "playwright":
-        return { icon: <Code className="h-5 w-5 text-green-400" />, title: "Playwright Code", color: "text-green-300" };
+        return { icon: <Code className="h-5 w-5 text-green-400" />, title: "Playwright (POM)", color: "text-green-300" };
       case "selenium":
-        return { icon: <Code className="h-5 w-5 text-orange-400" />, title: "Selenium Code", color: "text-orange-300" };
+        return { icon: <Code className="h-5 w-5 text-orange-400" />, title: "Selenium (POM + Mocha)", color: "text-orange-300" };
       case "cypress":
-        return { icon: <Code className="h-5 w-5 text-cyan-400" />, title: "Cypress Code", color: "text-cyan-300" };
+        return { icon: <Code className="h-5 w-5 text-cyan-400" />, title: "Cypress (Mocha + Commands)", color: "text-cyan-300" };
     }
   };
 
   const typeInfo = getTypeInfo();
+  const fileNames = getFileNames();
 
   if (isGenerating) {
     return (
@@ -193,6 +220,57 @@ const CodeOutput = ({
     );
   }
 
+  // Gherkin output (single file)
+  if (type === "gherkin") {
+    return (
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-white flex items-center text-base">
+                {typeInfo.icon}
+                <span className="ml-2">{typeInfo.title}</span>
+              </CardTitle>
+              <CardDescription className="text-slate-400 text-sm">
+                BDD scenarios ready for use
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(gherkinCode, "gherkin")}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => downloadCode(gherkinCode, "test.feature")}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            value={gherkinCode}
+            onChange={(e) => {
+              setGherkinCode(e.target.value);
+              onCodeGenerated(e.target.value);
+            }}
+            className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none ${typeInfo.color}`}
+            placeholder="Generated Gherkin code will appear here..."
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // POM output (two files)
   return (
     <Card className="bg-slate-800 border-slate-700">
       <CardHeader className="pb-3">
@@ -203,39 +281,84 @@ const CodeOutput = ({
               <span className="ml-2">{typeInfo.title}</span>
             </CardTitle>
             <CardDescription className="text-slate-400 text-sm">
-              Ready for use in your automation testing
+              Page Object Model with separate test file
             </CardDescription>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyToClipboard}
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
-            >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={downloadCode}
-              className="border-slate-600 text-slate-300 hover:bg-slate-700"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Textarea
-          value={code}
-          onChange={(e) => {
-            setCode(e.target.value);
-            onCodeGenerated(e.target.value);
-          }}
-          className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none ${typeInfo.color}`}
-          placeholder={`Generated ${type} code will appear here...`}
-        />
+      <CardContent>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList className="grid w-full grid-cols-2 bg-slate-700 mb-4">
+            <TabsTrigger value="pageObject" className="data-[state=active]:bg-blue-600">
+              <FileCode className="h-4 w-4 mr-2" />
+              {type === "cypress" ? "Commands" : "Page Object"}
+            </TabsTrigger>
+            <TabsTrigger value="testFile" className="data-[state=active]:bg-blue-600">
+              <Code className="h-4 w-4 mr-2" />
+              Test File
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pageObject" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400 font-mono">{fileNames.pageObject}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(pomCode.pageObject, "po")}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  {copiedPO ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadCode(pomCode.pageObject, fileNames.pageObject)}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              value={pomCode.pageObject}
+              onChange={(e) => setPomCode(prev => ({ ...prev, pageObject: e.target.value }))}
+              className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none ${typeInfo.color}`}
+              placeholder={`${type === "cypress" ? "Custom commands" : "Page Object"} code will appear here...`}
+            />
+          </TabsContent>
+
+          <TabsContent value="testFile" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-400 font-mono">{fileNames.testFile}</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(pomCode.testFile, "test")}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  {copiedTest ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadCode(pomCode.testFile, fileNames.testFile)}
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              value={pomCode.testFile}
+              onChange={(e) => setPomCode(prev => ({ ...prev, testFile: e.target.value }))}
+              className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none ${typeInfo.color}`}
+              placeholder="Test file code will appear here..."
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
