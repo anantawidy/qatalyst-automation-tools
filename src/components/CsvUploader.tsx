@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 
 export interface TestCase {
   id: string;
+  description: string;
   steps: string;
   expected: string;
   locator: string;
@@ -43,6 +44,7 @@ const CsvUploader = ({ onDataLoaded, testData, onReset }: CsvUploaderProps) => {
 
           // Find column indices
           const idIdx = headers.findIndex(h => h.includes('id') || h.includes('test case'));
+          const descIdx = headers.findIndex(h => h.includes('description') || h.includes('desc'));
           const stepsIdx = headers.findIndex(h => h.includes('step'));
           const expectedIdx = headers.findIndex(h => h.includes('expected'));
           const locatorIdx = headers.findIndex(h => h.includes('locator') || h.includes('selector'));
@@ -50,6 +52,7 @@ const CsvUploader = ({ onDataLoaded, testData, onReset }: CsvUploaderProps) => {
 
           const testCases: TestCase[] = dataRows.map(row => ({
             id: row[idIdx] || '',
+            description: row[descIdx] || '',
             steps: row[stepsIdx] || '',
             expected: row[expectedIdx] || '',
             locator: row[locatorIdx] || '',
@@ -121,11 +124,11 @@ const CsvUploader = ({ onDataLoaded, testData, onReset }: CsvUploaderProps) => {
   }, [onDataLoaded, toast]);
 
   const downloadTemplate = () => {
-    const template = `Test Case ID,Test Steps,Expected Result,Locators,Test Data
-TC001,Navigate to login page and enter credentials,User should be logged in successfully,usernameInput:#username;passwordInput:#password;loginBtn:button[type=submit],username:testuser@example.com;password:SecurePass123
-TC002,Submit empty login form,Error message should be displayed,errorMessage:.error-text,
-TC003,Enter invalid email format,Validation error should appear,emailInput:#email;validationMsg:.validation-error,email:invalid-email
-TC004,Click forgot password link,Password reset page should open,forgotLink:a.forgot-password,`;
+    const template = `Test Case ID,Test Description,Test Steps,Expected Result,Locators,Test Data
+TC001,Verify successful login with valid credentials,Navigate to login page and enter credentials,User should be logged in successfully,usernameInput:#username;passwordInput:#password;loginBtn:button[type=submit],username:testuser@example.com;password:SecurePass123
+TC002,Verify error message on empty form submission,Submit empty login form,Error message should be displayed,errorMessage:.error-text,
+TC003,Verify validation for invalid email format,Enter invalid email format,Validation error should appear,emailInput:#email;validationMsg:.validation-error,email:invalid-email
+TC004,Verify forgot password link navigation,Click forgot password link,Password reset page should open,forgotLink:a.forgot-password,`;
 
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -215,7 +218,7 @@ TC004,Click forgot password link,Password reset page should open,forgotLink:a.fo
             Single CSV file with all test data
           </p>
           <p className="text-slate-500 text-xs mb-4">
-            Columns: Test Case ID | Test Steps | Expected Result | Locators | Test Data
+            Columns: Test Case ID | Test Description | Test Steps | Expected Result | Locators | Test Data
           </p>
           <div className="flex gap-3">
             <Button
