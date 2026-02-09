@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TestCaseData } from "./CsvUploader";
 
-type OutputType = "gherkin" | "playwright" | "selenium" | "cypress";
+type OutputType = "gherkin" | "playwright" | "selenium" | "cypress" | "robot";
 
 interface GeneratedCode {
   pageObject: string;
@@ -116,7 +116,8 @@ const CodeOutput = ({
 
   const generateAutomationCode = async () => {
     const functionName = type === "playwright" ? "generate-playwright" : 
-                         type === "selenium" ? "generate-selenium" : "generate-cypress";
+                         type === "selenium" ? "generate-selenium" : 
+                         type === "cypress" ? "generate-cypress" : "generate-robot";
     
     try {
       const { data, error } = await supabase.functions.invoke(functionName, {
@@ -203,6 +204,8 @@ const CodeOutput = ({
         return { pageObject: "LoginPage.js", testFile: "login.test.js", dataFile: "testData.json" };
       case "cypress":
         return { pageObject: "commands.js", testFile: "login.cy.js", dataFile: "testData.json" };
+      case "robot":
+        return { pageObject: "keywords.robot", testFile: "tests.robot", dataFile: "testdata.py" };
       default:
         return { pageObject: "page.js", testFile: "test.js", dataFile: "testData.json" };
     }
@@ -218,6 +221,8 @@ const CodeOutput = ({
         return { icon: <Code className="h-5 w-5 text-orange-400" />, title: "Selenium (POM + Mocha)", color: "text-orange-300" };
       case "cypress":
         return { icon: <Code className="h-5 w-5 text-cyan-400" />, title: "Cypress (Mocha + Commands)", color: "text-cyan-300" };
+      case "robot":
+        return { icon: <Code className="h-5 w-5 text-rose-400" />, title: "Robot Framework", color: "text-rose-300" };
     }
   };
 
@@ -341,7 +346,7 @@ const CodeOutput = ({
           <TabsList className="grid w-full grid-cols-3 bg-slate-700 mb-4">
             <TabsTrigger value="pageObject" className="data-[state=active]:bg-blue-600">
               <FileCode className="h-4 w-4 mr-2" />
-              {type === "cypress" ? "Commands" : "Page Object"}
+              {type === "cypress" ? "Commands" : type === "robot" ? "Keywords" : "Page Object"}
             </TabsTrigger>
             <TabsTrigger value="testFile" className="data-[state=active]:bg-blue-600">
               <Code className="h-4 w-4 mr-2" />
@@ -379,7 +384,7 @@ const CodeOutput = ({
               value={pomCode.pageObject}
               onChange={(e) => setPomCode(prev => ({ ...prev, pageObject: e.target.value }))}
               className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none ${typeInfo.color}`}
-              placeholder={`${type === "cypress" ? "Custom commands" : "Page Object"} code will appear here...`}
+              placeholder={`${type === "cypress" ? "Custom commands" : type === "robot" ? "Keywords" : "Page Object"} code will appear here...`}
             />
           </TabsContent>
 

@@ -1,1 +1,16 @@
 project_id = "poxweceateceiloghmyg"
+
+[functions.generate-gherkin]
+verify_jwt = false
+
+[functions.generate-playwright]
+verify_jwt = false
+
+[functions.generate-selenium]
+verify_jwt = false
+
+[functions.generate-cypress]
+verify_jwt = false
+
+[functions.generate-robot]
+verify_jwt = false

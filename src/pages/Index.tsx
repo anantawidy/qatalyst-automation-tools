@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Code, Sparkles, Play, TestTube } from "lucide-react";
+import { FileText, Code, Sparkles, Play, TestTube, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Footer from "@/components/Footer";
 import CsvUploader, { TestCaseData } from "@/components/CsvUploader";
 import CodeOutput from "@/components/CodeOutput";
 import WorkflowSteps from "@/components/WorkflowSteps";
 
-type OutputType = "gherkin" | "playwright" | "selenium" | "cypress" | null;
+type OutputType = "gherkin" | "playwright" | "selenium" | "cypress" | "robot" | null;
 
 const Index = () => {
   const [testData, setTestData] = useState<TestCaseData | null>(null);
@@ -128,6 +128,15 @@ const Index = () => {
                 >
                   <Play className="h-5 w-5 mr-2" />
                   Generate Cypress
+                </Button>
+                <Button 
+                  onClick={() => handleSelectOutput("robot")}
+                  className="bg-rose-600 hover:bg-rose-700 text-white"
+                  size="lg"
+                  title="Keyword-driven automation, ideal for QA and non-developers."
+                >
+                  <Bot className="h-5 w-5 mr-2" />
+                  Generate Robot Framework
                 </Button>
               </div>
             </div>
