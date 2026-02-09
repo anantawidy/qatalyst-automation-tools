@@ -1,4 +1,4 @@
-import { Upload, Sparkles, Play } from "lucide-react";
+import { Upload, Sparkles } from "lucide-react";
 
 interface WorkflowStepsProps {
   currentStep: number;
@@ -14,15 +14,9 @@ const WorkflowSteps = ({ currentStep }: WorkflowStepsProps) => {
     },
     {
       number: 2,
-      title: "AI Generates Automation",
+      title: "Generated Output",
       subtitle: "",
       icon: <Sparkles className="h-5 w-5" />,
-    },
-    {
-      number: 3,
-      title: "Run & View Report",
-      subtitle: "",
-      icon: <Play className="h-5 w-5" />,
     },
   ];
 

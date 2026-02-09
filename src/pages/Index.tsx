@@ -138,10 +138,10 @@ const Index = () => {
         {outputType && testData && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">3</div>
-                <h2 className="text-lg font-semibold text-white">Generated Output</h2>
-              </div>
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">2</div>
+              <h2 className="text-lg font-semibold text-white">Generated Output</h2>
+            </div>
               <Button 
                 variant="outline" 
                 size="sm"

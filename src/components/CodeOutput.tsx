@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Download, Code, FileText, Loader2, Check, FileCode, Database } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Copy, Download, Code, FileText, Loader2, Check, FileCode, Database, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { TestCaseData } from "./CsvUploader";
@@ -39,6 +40,7 @@ const CodeOutput = ({
   const [copiedPO, setCopiedPO] = useState(false);
   const [copiedTest, setCopiedTest] = useState(false);
   const [copiedData, setCopiedData] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,6 +59,7 @@ const CodeOutput = ({
     if (testData.testCases.length === 0) return;
     
     setIsGenerating(true);
+    setErrorMessage(null);
     
     try {
       if (type === "gherkin") {
@@ -64,8 +67,16 @@ const CodeOutput = ({
       } else {
         await generateAutomationCode();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating code:', error);
+      const errorMsg = error?.message?.toLowerCase() || '';
+      
+      if (errorMsg.includes('rate limit') || errorMsg.includes('quota') || errorMsg.includes('429') || errorMsg.includes('limit')) {
+        setErrorMessage("AI Generation limit reached. Please try again later or use another model.");
+      } else {
+        setErrorMessage("An error occurred while generating code. Please try again.");
+      }
+      
       toast({
         title: "Generation Failed",
         description: "An error occurred while generating code.",
@@ -116,8 +127,12 @@ const CodeOutput = ({
         }
       });
 
-      if (error || data?.error) {
-        throw new Error(data?.error || error?.message || 'Unknown error');
+      if (error) {
+        throw new Error(error.message || 'Unknown error');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       const cleanCode = (code: string) => code
@@ -139,7 +154,7 @@ const CodeOutput = ({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
         description: `Page Object, Test file, and Data file generated successfully.`,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Error generating ${type}:`, err);
       throw err;
     }
@@ -208,6 +223,34 @@ const CodeOutput = ({
 
   const typeInfo = getTypeInfo();
   const fileNames = getFileNames();
+
+  // Error state
+  if (errorMessage) {
+    return (
+      <Card className="bg-slate-800 border-slate-700">
+        <CardContent className="p-6">
+          <Alert variant="destructive" className="bg-red-900/20 border-red-500/50">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <AlertTitle className="text-red-300 font-semibold">Generation Failed</AlertTitle>
+            <AlertDescription className="text-red-200 mt-2">
+              {errorMessage}
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4 flex justify-center">
+            <Button 
+              onClick={() => {
+                setErrorMessage(null);
+                generateCode();
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Try Again
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isGenerating) {
     return (
