@@ -56,15 +56,15 @@ serve(async (req) => {
       );
     }
 
-    const prompt = `
-You are a senior QA engineer writing Gherkin BDD scenarios.
+    const prompt = `You are a senior QA engineer writing Gherkin BDD scenarios.
 
 Generate a Gherkin feature file based on this info:
 URL: ${sanitizedUrl}
 Scenario description: ${sanitizedDesc}
 
-STRICT FORMAT RULES:
-1. Start with a Feature line, then the BDD narrative:
+STRICT FORMAT RULES — YOU MUST FOLLOW EVERY RULE EXACTLY:
+
+1. Start with a Feature line, then the BDD narrative (each on its own line, indented with 2 spaces):
    Feature: <Feature Name>
      As a <role>
      I want <goal>
@@ -73,23 +73,49 @@ STRICT FORMAT RULES:
 2. Scenario naming:
    - Concise, readable titles
    - Do NOT include numbered steps, URLs, or technical IDs in scenario titles
+   - Good: "Scenario: Successful login with valid credentials"
+   - Bad: "Scenario: 1. Navigate to https://example.com and login"
 
-3. Step structure:
-   - Given: preconditions or initial state
-   - When: a single main user action
-   - And: additional user actions (after When)
-   - Then: expected outcome
-   - And: additional expected outcomes (after Then)
+3. Step structure — each step MUST be on its own line with proper indentation (4 spaces):
+   - Given: preconditions or initial state (ONE precondition per line)
+   - When: a SINGLE main user action
+   - And: additional user actions (each on its own line, after When)
+   - Then: ONE expected outcome
+   - And: additional expected outcomes (each on its own line, after Then)
 
-4. Formatting:
-   - Do NOT include numbering (1., 2., 3.) inside steps
-   - Each step must be on its own line
+4. CRITICAL formatting rules:
+   - Do NOT include numbering (1., 2., 3.) inside steps — NEVER
    - Do NOT place multiple actions inside a single When step
-   - Error messages must be part of Then or And steps
+   - Do NOT leave raw text outside of Gherkin steps
+   - Do NOT add blank lines between steps within a scenario
+   - Add ONE blank line between scenarios
+   - Error messages MUST be part of Then or And steps, e.g.:
+     Then an error message "Epic sadface: Username is required" should be displayed
 
 5. Be specific with actions and expected results using actual UI references (buttons, fields, labels).
 
-6. Output ONLY the Gherkin content. No explanation, no markdown fences.
+6. Output ONLY the Gherkin content. No explanation, no markdown fences, no comments.
+
+EXAMPLE OUTPUT FORMAT:
+Feature: Login Functionality
+  As a user
+  I want to login into the system
+  So that I can access the products page
+
+  Scenario: Successful login with valid credentials
+    Given the user is on the login page
+    When the user enters a valid username
+    And the user enters a valid password
+    And the user clicks the Login button
+    Then the user should be redirected to the Products page
+
+  Scenario: Login fails with invalid credentials
+    Given the user is on the login page
+    When the user enters an invalid username
+    And the user enters a valid password
+    And the user clicks the Login button
+    Then an error message should be displayed
+    And the error message should be "Epic sadface: Username and password do not match any user in this service"
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
