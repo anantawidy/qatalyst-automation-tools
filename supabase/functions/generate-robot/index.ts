@@ -5,6 +5,39 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MAX_TEST_CASES = 50;
+const MAX_STRING_LENGTH = 1000;
+
+function validateAutomationPayload(body: any): string | null {
+  if (!body?.testCases || !Array.isArray(body.testCases) || body.testCases.length === 0) {
+    return "No test cases provided. Please upload a valid CSV first.";
+  }
+  if (body.testCases.length > MAX_TEST_CASES) {
+    return `Too many test cases. Maximum is ${MAX_TEST_CASES}.`;
+  }
+  for (const tc of body.testCases) {
+    if (tc.steps && typeof tc.steps === "string" && tc.steps.length > MAX_STRING_LENGTH) {
+      return `Test case step too long (max ${MAX_STRING_LENGTH} chars).`;
+    }
+    if (tc.expected && typeof tc.expected === "string" && tc.expected.length > MAX_STRING_LENGTH) {
+      return `Test case expected result too long (max ${MAX_STRING_LENGTH} chars).`;
+    }
+  }
+  return null;
+}
+
+function sanitizePayload(body: any) {
+  const testCases = (body.testCases || []).slice(0, MAX_TEST_CASES).map((tc: any) => ({
+    id: String(tc.id || "").slice(0, 100),
+    description: String(tc.description || "").slice(0, MAX_STRING_LENGTH),
+    steps: String(tc.steps || "").slice(0, MAX_STRING_LENGTH),
+    expected: String(tc.expected || "").slice(0, MAX_STRING_LENGTH),
+  }));
+  const locators = body.locators && typeof body.locators === "object" ? body.locators : {};
+  const testData = body.testData && typeof body.testData === "object" ? body.testData : {};
+  return { testCases, locators, testData };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -12,23 +45,26 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const testCases = body?.testCases;
-    const locators = body?.locators || {};
-    const testData = body?.testData || {};
 
-    // Defensive payload validation
-    if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
+    const validationError = validateAutomationPayload(body);
+    if (validationError) {
       return new Response(
-        JSON.stringify({ error: 'No test cases provided. Please upload a valid CSV first.' }),
+        JSON.stringify({ error: validationError }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { testCases, locators, testData } = sanitizePayload(body);
 
     console.log('Generating Robot Framework code for', testCases.length, 'test cases');
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      console.error('LOVABLE_API_KEY is not configured');
+      return new Response(
+        JSON.stringify({ error: 'Service configuration error. Please try again later.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const prompt = `You are an expert Robot Framework automation engineer. Generate Robot Framework automation code based on the following test cases, locators, and test data.
@@ -113,19 +149,25 @@ Generate ONLY the code with the markers. No explanations.`;
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(`AI gateway error: ${response.status}`);
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate code. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const data = await response.json();
     const generatedText = data.choices?.[0]?.message?.content?.trim() || '';
 
     if (!generatedText) {
-      throw new Error('No content received from AI');
+      console.error('No content received from AI');
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate code. Please try again.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Generated text length:', generatedText.length);
 
-    // Parse sections
     const extractSection = (text: string, startMarker: string, endMarker: string): string => {
       const startIdx = text.indexOf(startMarker);
       const endIdx = text.indexOf(endMarker);
@@ -137,7 +179,7 @@ Generate ONLY the code with the markers. No explanations.`;
     const keywords = extractSection(generatedText, '===KEYWORDS_START===', '===KEYWORDS_END===');
     const dataFile = extractSection(generatedText, '===DATA_FILE_START===', '===DATA_FILE_END===');
 
-    // Fallback if markers weren't found — return the whole text as testFile
+    // Fallback if markers weren't found
     if (!robotTest && !keywords && !dataFile) {
       console.warn('Markers not found in AI output, returning raw text as testFile');
       return new Response(
@@ -162,7 +204,7 @@ Generate ONLY the code with the markers. No explanations.`;
   } catch (error) {
     console.error('Error generating Robot Framework code:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to generate Robot Framework code' }),
+      JSON.stringify({ error: 'Failed to generate code. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
