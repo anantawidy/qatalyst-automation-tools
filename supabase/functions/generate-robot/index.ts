@@ -67,79 +67,107 @@ Deno.serve(async (req) => {
       );
     }
 
-    const prompt = `You are an expert Robot Framework automation engineer. Generate enterprise-grade Robot Framework automation code based on the following test cases, locators, and test data.
+    const prompt = `You are an expert Robot Framework automation engineer generating enterprise-grade, production-ready automation code.
 
-TEST CASES:
-${JSON.stringify(testCases, null, 2)}
+INPUT DATA:
+Test Cases: ${JSON.stringify(testCases, null, 2)}
+Locators: ${JSON.stringify(locators, null, 2)}
+Test Data: ${JSON.stringify(testData, null, 2)}
 
-LOCATORS:
-${JSON.stringify(locators, null, 2)}
+CRITICAL INSTRUCTIONS — FOLLOW EVERY RULE EXACTLY:
 
-TEST DATA:
-${JSON.stringify(testData, null, 2)}
+OUTPUT THREE sections with these EXACT markers (no other text outside markers):
 
-REQUIREMENTS:
-1. Generate THREE separate sections with these EXACT markers:
-   ===ROBOT_TEST_START===
-   (robot test file content)
-   ===ROBOT_TEST_END===
-   
-   ===KEYWORDS_START===
-   (keywords file content)
-   ===KEYWORDS_END===
-   
-   ===DATA_FILE_START===
-   (data file content)
-   ===DATA_FILE_END===
+===DATA_FILE_START===
+(testdata.py content)
+===DATA_FILE_END===
 
-2. DATA FILE (testdata.py):
-   - Python variables file for Robot Framework
-   - Flat structure, not nested
-   - ALL locators must be stored here as variables (e.g., ID_USERNAME = "id:user-name", CSS_TITLE = "css=.title", XPATH_CART = "xpath://div[@class='cart']")
-   - ALL test data must be stored here (credentials, URLs, error messages, expected texts)
-   - Use ONLY valid locator formats: id:xxx, css=xxx, xpath:xxx, name:xxx
-   - Do NOT use invalid formats like "class:xxx"
-   - Example:
-     URL = "https://example.com"
-     ID_USERNAME = "id:user-name"
-     ID_PASSWORD = "id:password"
-     CSS_LOGIN_BTN = "css=.btn-login"
-     VALID_USER = "standard_user"
-     VALID_PASS = "secret_sauce"
-     ERR_MSG_INVALID = "Epic sadface: Username and password do not match"
+===KEYWORDS_START===
+(keywords.robot content)
+===KEYWORDS_END===
 
-3. ROBOT KEYWORDS FILE (keywords.robot):
-   - Include *** Settings *** with Library SeleniumLibrary and Variables testdata.py
-   - Include *** Keywords ***
-   - Create reusable keywords for ALL UI interactions
-   - Keywords must accept arguments for dynamic test data
-   - EVERY UI interaction must use "Wait Until Element Is Visible" with timeout=10s BEFORE interacting
-   - Use clear, descriptive Title Case keyword names (e.g., "Input Username", "Click Login Button")
-   - Do NOT hardcode ANY locators or test data inside keywords — reference variables from testdata.py (e.g., \${ID_USERNAME})
-   - Assertions must be implemented inside reusable keywords (e.g., "Verify Page Title", "Verify Error Message")
-   - Do NOT use raw SeleniumLibrary commands in test cases
-   - Example keyword:
-     Input Username
-         [Arguments]    \${username}
-         Wait Until Element Is Visible    \${ID_USERNAME}    timeout=10s
-         Input Text    \${ID_USERNAME}    \${username}
+===ROBOT_TEST_START===
+(tests.robot content)
+===ROBOT_TEST_END===
 
-4. ROBOT TEST FILE (tests.robot):
-   - Include *** Settings *** with Resource keywords.robot and Variables testdata.py
-   - Include *** Test Cases ***
-   - Human-readable test case names based on test description
-   - Test steps must ONLY call reusable keywords from the keywords file
-   - Do NOT include direct SeleniumLibrary calls in test cases
-   - Add [Documentation] and [Tags] for each test case
-   - Pass test data from testdata.py variables as arguments to keywords
+────────────────────────────────────────
+SECTION 1: DATA FILE (testdata.py)
+────────────────────────────────────────
+- Python variables file for Robot Framework (imported via Variables testdata.py)
+- FLAT structure only — no dicts, no lists, no nesting
+- ALL locators stored as variables using ONLY these valid formats:
+    id:xxx        → ID_USERNAME = "id:user-name"
+    css=xxx       → CSS_TITLE = "css=.title"
+    css=#xxx      → CSS_CONTAINER = "css=#inventory_container"
+    xpath:xxx     → XPATH_CART = "xpath://div[@class='cart']"
+    name:xxx      → NAME_EMAIL = "name:email"
+- NEVER use invalid formats like "class:xxx" or "className:xxx"
+- ALL test data stored here: URLs, credentials, expected texts, error messages
+- Consistent naming: PREFIX_ELEMENTNAME (e.g., ID_USERNAME, CSS_LOGIN_BTN, VALID_USER, ERR_MSG_LOCKED)
 
-5. STYLE:
-   - 4-space indentation
-   - Title Case keyword names
-   - Executable without modification
-   - No hardcoded locators or data in keywords or test cases
+────────────────────────────────────────
+SECTION 2: KEYWORDS FILE (keywords.robot)
+────────────────────────────────────────
+*** Settings ***
+Library    SeleniumLibrary
+Variables    testdata.py
 
-Generate ONLY the code with the markers. No explanations.`;
+*** Keywords ***
+- Create a reusable keyword for EVERY UI interaction
+- Keywords MUST accept [Arguments] for dynamic data
+- MANDATORY: Before EVERY click, input, or interaction, add:
+    Wait Until Element Is Visible    \${LOCATOR_VAR}    10s
+- Do NOT duplicate waits (one wait per interaction, not two)
+- Use Title Case keyword names: "Input Username", "Click Login Button", "Verify Error Message"
+- NEVER hardcode locators — always use \${VAR} from testdata.py
+- NEVER hardcode test data inside keywords — pass via arguments
+- Assertions MUST be inside keywords (e.g., "Verify Page Title", "Verify Error Message Is Displayed")
+- For URL verification prefer:
+    Wait Until Location Contains    expected-path    10s
+  instead of strict full URL equality
+- Example:
+    Input Username
+        [Arguments]    \${username}
+        Wait Until Element Is Visible    \${ID_USERNAME}    10s
+        Input Text    \${ID_USERNAME}    \${username}
+
+    Verify Error Message Is Displayed
+        [Arguments]    \${expected_message}
+        Wait Until Element Is Visible    \${CSS_ERROR_MSG}    10s
+        Element Text Should Be    \${CSS_ERROR_MSG}    \${expected_message}
+
+────────────────────────────────────────
+SECTION 3: TEST FILE (tests.robot)
+────────────────────────────────────────
+*** Settings ***
+Resource    keywords.robot
+Variables    testdata.py
+Suite Teardown    Close All Browsers
+
+*** Test Cases ***
+- Human-readable test case names derived from test description
+- Add [Documentation] and [Tags] for each test case
+- Test steps MUST ONLY call keywords — NO raw SeleniumLibrary commands in test cases
+- Pass test data from testdata.py as keyword arguments: e.g., Input Username    \${VALID_USER}
+- Include Suite Teardown to safely close browsers
+- Example:
+    Successful Login With Valid Credentials
+        [Documentation]    Verify user can login with valid credentials
+        [Tags]    smoke    login
+        Open Browser To Login Page
+        Input Username    \${VALID_USER}
+        Input Password    \${VALID_PASS}
+        Click Login Button
+        Verify Products Page Is Displayed
+
+STYLE RULES:
+- 4-space indentation throughout
+- Title Case for all keyword names
+- Code must be executable without ANY modification
+- No hardcoded locators or data anywhere except testdata.py
+- Clean, readable, production-ready code
+
+Generate ONLY the code with the markers. No explanations, no markdown fences.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
