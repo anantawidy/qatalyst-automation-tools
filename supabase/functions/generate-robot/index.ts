@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const prompt = `You are an expert Robot Framework automation engineer. Generate Robot Framework automation code based on the following test cases, locators, and test data.
+    const prompt = `You are an expert Robot Framework automation engineer. Generate enterprise-grade Robot Framework automation code based on the following test cases, locators, and test data.
 
 TEST CASES:
 ${JSON.stringify(testCases, null, 2)}
@@ -92,31 +92,52 @@ REQUIREMENTS:
    (data file content)
    ===DATA_FILE_END===
 
-2. ROBOT TEST FILE (tests.robot):
-   - Include *** Settings *** with Library SeleniumLibrary, Resource keywords.robot, Variables testdata.py
+2. DATA FILE (testdata.py):
+   - Python variables file for Robot Framework
+   - Flat structure, not nested
+   - ALL locators must be stored here as variables (e.g., ID_USERNAME = "id:user-name", CSS_TITLE = "css=.title", XPATH_CART = "xpath://div[@class='cart']")
+   - ALL test data must be stored here (credentials, URLs, error messages, expected texts)
+   - Use ONLY valid locator formats: id:xxx, css=xxx, xpath:xxx, name:xxx
+   - Do NOT use invalid formats like "class:xxx"
+   - Example:
+     URL = "https://example.com"
+     ID_USERNAME = "id:user-name"
+     ID_PASSWORD = "id:password"
+     CSS_LOGIN_BTN = "css=.btn-login"
+     VALID_USER = "standard_user"
+     VALID_PASS = "secret_sauce"
+     ERR_MSG_INVALID = "Epic sadface: Username and password do not match"
+
+3. ROBOT KEYWORDS FILE (keywords.robot):
+   - Include *** Settings *** with Library SeleniumLibrary and Variables testdata.py
+   - Include *** Keywords ***
+   - Create reusable keywords for ALL UI interactions
+   - Keywords must accept arguments for dynamic test data
+   - EVERY UI interaction must use "Wait Until Element Is Visible" with timeout=10s BEFORE interacting
+   - Use clear, descriptive Title Case keyword names (e.g., "Input Username", "Click Login Button")
+   - Do NOT hardcode ANY locators or test data inside keywords — reference variables from testdata.py (e.g., \${ID_USERNAME})
+   - Assertions must be implemented inside reusable keywords (e.g., "Verify Page Title", "Verify Error Message")
+   - Do NOT use raw SeleniumLibrary commands in test cases
+   - Example keyword:
+     Input Username
+         [Arguments]    \${username}
+         Wait Until Element Is Visible    \${ID_USERNAME}    timeout=10s
+         Input Text    \${ID_USERNAME}    \${username}
+
+4. ROBOT TEST FILE (tests.robot):
+   - Include *** Settings *** with Resource keywords.robot and Variables testdata.py
    - Include *** Test Cases ***
    - Human-readable test case names based on test description
    - Test steps must ONLY call reusable keywords from the keywords file
    - Do NOT include direct SeleniumLibrary calls in test cases
    - Add [Documentation] and [Tags] for each test case
-
-3. KEYWORDS FILE (keywords.robot):
-   - Include *** Keywords ***
-   - Create reusable keywords for ALL UI interactions
-   - Keywords must accept arguments for dynamic test data
-   - Use clear, descriptive keyword names (e.g., "Input Username", "Click Login Button")
-   - Do NOT hardcode any test data inside keywords
-   - Use SeleniumLibrary keywords properly
-
-4. DATA FILE (testdata.py):
-   - Python variables file for Robot Framework
-   - Flat structure, not nested
-   - Include variables for credentials, error messages, URLs
+   - Pass test data from testdata.py variables as arguments to keywords
 
 5. STYLE:
    - 4-space indentation
    - Title Case keyword names
    - Executable without modification
+   - No hardcoded locators or data in keywords or test cases
 
 Generate ONLY the code with the markers. No explanations.`;
 
