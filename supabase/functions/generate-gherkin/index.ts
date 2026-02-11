@@ -56,47 +56,59 @@ serve(async (req) => {
       );
     }
 
-    const prompt = `You are a senior QA engineer writing Gherkin BDD scenarios.
+    const prompt = `You are a senior QA engineer and BDD specialist. Your task is to TRANSFORM the provided scenario description into properly structured Gherkin BDD scenarios.
 
-Generate a Gherkin feature file based on this info:
+CRITICAL: You must REWRITE and TRANSFORM the input into natural BDD language. Do NOT copy raw input text directly into steps. Convert imperative instructions into declarative, human-readable Gherkin.
+
+INPUT:
 URL: ${sanitizedUrl}
 Scenario description: ${sanitizedDesc}
 
-STRICT FORMAT RULES — YOU MUST FOLLOW EVERY RULE EXACTLY:
+══════════════════════════════════════════
+STRICT FORMAT RULES — VIOLATING ANY RULE IS A FAILURE
+══════════════════════════════════════════
 
-1. Start with a Feature line, then the BDD narrative (each on its own line, indented with 2 spaces):
-   Feature: <Feature Name>
+1. FEATURE HEADER (required):
+   Feature: <Short Descriptive Name>
      As a <role>
      I want <goal>
      So that <benefit>
 
-2. Scenario naming:
-   - Concise, readable titles
-   - Do NOT include numbered steps, URLs, or technical IDs in scenario titles
-   - Good: "Scenario: Successful login with valid credentials"
-   - Bad: "Scenario: 1. Navigate to https://example.com and login"
+2. SCENARIO TITLES:
+   - Concise, descriptive, human-readable
+   - NEVER include numbered steps (1., 2., 3.)
+   - NEVER include URLs or technical identifiers
+   - NEVER include implementation details
+   - GOOD: "Scenario: Successful login with valid credentials"
+   - BAD: "Scenario: 1. Navigate to https://example.com and enter username"
 
-3. Step structure — each step MUST be on its own line with proper indentation (4 spaces):
-   - Given: preconditions or initial state (ONE precondition per line)
-   - When: a SINGLE main user action
-   - And: additional user actions (each on its own line, after When)
-   - Then: ONE expected outcome
-   - And: additional expected outcomes (each on its own line, after Then)
+3. STEP CLASSIFICATION (each step on its own line, 4-space indent):
+   Given → precondition or initial state (ONE per line)
+   When  → the FIRST main user action
+   And   → additional user actions (after When, one per line)
+   Then  → ONE expected outcome
+   And   → additional expected outcomes (after Then, one per line)
 
-4. CRITICAL formatting rules:
-   - Do NOT include numbering (1., 2., 3.) inside steps — NEVER
-   - Do NOT place multiple actions inside a single When step
-   - Do NOT leave raw text outside of Gherkin steps
-   - Do NOT add blank lines between steps within a scenario
-   - Add ONE blank line between scenarios
-   - Error messages MUST be part of Then or And steps, e.g.:
-     Then an error message "Epic sadface: Username is required" should be displayed
+4. TRANSFORMATION RULES (MANDATORY):
+   - REMOVE all numbering (1., 2., 3.) from steps
+   - REMOVE URLs from step text — refer to pages by name instead
+   - CONVERT imperative steps ("Click the button", "Type username") into natural BDD language ("the user clicks the Login button", "the user enters a valid username")
+   - SPLIT compound actions — each And step must contain exactly ONE action
+   - NEVER combine multiple actions in a single When or And step
+   - NEVER leave raw text, comments, or prose outside of Gherkin steps
+   - Error messages MUST appear in Then or And steps:
+     Then an error message "Error text here" should be displayed
 
-5. Be specific with actions and expected results using actual UI references (buttons, fields, labels).
+5. FORMATTING:
+   - No blank lines between steps within a scenario
+   - ONE blank line between scenarios
+   - 2-space indent for narrative (As a/I want/So that)
+   - 4-space indent for steps (Given/When/And/Then)
+   - No markdown fences, no comments, no explanations
 
-6. Output ONLY the Gherkin content. No explanation, no markdown fences, no comments.
+6. OUTPUT: Raw Gherkin text ONLY. Nothing else.
 
-EXAMPLE OUTPUT FORMAT:
+EXAMPLE OUTPUT:
 Feature: Login Functionality
   As a user
   I want to login into the system
