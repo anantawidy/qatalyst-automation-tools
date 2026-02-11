@@ -5,17 +5,64 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const MAX_TEST_CASES = 50;
+const MAX_STRING_LENGTH = 1000;
+
+function validateAutomationPayload(body: any): string | null {
+  if (!body?.testCases || !Array.isArray(body.testCases) || body.testCases.length === 0) {
+    return "No test cases provided. Please upload a valid CSV first.";
+  }
+  if (body.testCases.length > MAX_TEST_CASES) {
+    return `Too many test cases. Maximum is ${MAX_TEST_CASES}.`;
+  }
+  for (const tc of body.testCases) {
+    if (tc.steps && typeof tc.steps === "string" && tc.steps.length > MAX_STRING_LENGTH) {
+      return `Test case step too long (max ${MAX_STRING_LENGTH} chars).`;
+    }
+    if (tc.expected && typeof tc.expected === "string" && tc.expected.length > MAX_STRING_LENGTH) {
+      return `Test case expected result too long (max ${MAX_STRING_LENGTH} chars).`;
+    }
+  }
+  return null;
+}
+
+function sanitizePayload(body: any) {
+  const testCases = (body.testCases || []).slice(0, MAX_TEST_CASES).map((tc: any) => ({
+    id: String(tc.id || "").slice(0, 100),
+    description: String(tc.description || "").slice(0, MAX_STRING_LENGTH),
+    steps: String(tc.steps || "").slice(0, MAX_STRING_LENGTH),
+    expected: String(tc.expected || "").slice(0, MAX_STRING_LENGTH),
+  }));
+  const locators = body.locators && typeof body.locators === "object" ? body.locators : {};
+  const testData = body.testData && typeof body.testData === "object" ? body.testData : {};
+  return { testCases, locators, testData };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { testCases, locators, testData } = await req.json();
-    
+    const body = await req.json();
+
+    const validationError = validateAutomationPayload(body);
+    if (validationError) {
+      return new Response(
+        JSON.stringify({ error: validationError }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { testCases, locators, testData } = sanitizePayload(body);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(
+        JSON.stringify({ error: "Service configuration error. Please try again later." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const prompt = `
@@ -62,19 +109,7 @@ Generate Selenium WebDriver test code with THREE separate outputs:
 
 **DATA FILE (testData.json):**
 - Valid JSON with flat global structure (not nested per-scenario)
-- Store all test data: username, password, invalidUsername, invalidPassword, emptyUsername, emptyPassword, errorMessage, etc.
-- Tests reference these fields explicitly
-
-Example data structure:
-{
-  "username": "testuser",
-  "password": "password123",
-  "invalidUsername": "wronguser",
-  "invalidPassword": "wrongpass",
-  "emptyUsername": "",
-  "emptyPassword": "",
-  "errorMessage": "Invalid credentials"
-}
+- Store all test data
 
 **OUTPUT FORMAT:**
 Output exactly in this format with the separators:
@@ -108,9 +143,12 @@ Do not include any other text, comments, or markdown code blocks.
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI gateway error:", response.status, errorText);
+
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          JSON.stringify({ error: "AI Generation limit reached. Please try again later." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -120,35 +158,39 @@ Do not include any other text, comments, or markdown code blocks.
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("Failed to generate Selenium code from AI");
+      return new Response(
+        JSON.stringify({ error: "Failed to generate code. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {
-      throw new Error("No content received from AI");
+      console.error("No content received from AI");
+      return new Response(
+        JSON.stringify({ error: "Failed to generate code. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Parse the three files from the response
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
     const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
     const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
-    const pageObject = pageObjectMatch?.[1]?.trim() || '';
-    const testFile = testFileMatch?.[1]?.trim() || '';
-    const dataFile = dataFileMatch?.[1]?.trim() || '';
-
     return new Response(
-      JSON.stringify({ pageObject, testFile, dataFile }),
+      JSON.stringify({
+        pageObject: pageObjectMatch?.[1]?.trim() || '',
+        testFile: testFileMatch?.[1]?.trim() || '',
+        dataFile: dataFileMatch?.[1]?.trim() || '',
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("generate-selenium error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "Failed to generate code. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
