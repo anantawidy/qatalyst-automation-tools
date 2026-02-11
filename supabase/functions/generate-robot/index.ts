@@ -5,30 +5,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface TestCase {
-  id: string;
-  description?: string;
-  steps: string;
-  expected: string;
-}
-
-interface RequestBody {
-  testCases: TestCase[];
-  locators: Record<string, string>;
-  testData: Record<string, string>;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { testCases, locators, testData }: RequestBody = await req.json();
-    
+    const body = await req.json();
+    const testCases = body?.testCases;
+    const locators = body?.locators || {};
+    const testData = body?.testData || {};
+
+    // Defensive payload validation
+    if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No test cases provided. Please upload a valid CSV first.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('Generating Robot Framework code for', testCases.length, 'test cases');
-    console.log('Locators:', JSON.stringify(locators));
-    console.log('Test Data:', JSON.stringify(testData));
+
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
 
     const prompt = `You are an expert Robot Framework automation engineer. Generate Robot Framework automation code based on the following test cases, locators, and test data.
 
@@ -52,87 +53,79 @@ REQUIREMENTS:
    ===KEYWORDS_END===
    
    ===DATA_FILE_START===
-   (data file content as Robot Framework variables)
+   (data file content)
    ===DATA_FILE_END===
 
 2. ROBOT TEST FILE (tests.robot):
-   - Include *** Settings *** section with Library SeleniumLibrary and Resource keywords.robot and Variables testdata.py
-   - Include *** Test Cases *** section
-   - Each test case must have a clear, human-readable name based on the test description
+   - Include *** Settings *** with Library SeleniumLibrary, Resource keywords.robot, Variables testdata.py
+   - Include *** Test Cases ***
+   - Human-readable test case names based on test description
    - Test steps must ONLY call reusable keywords from the keywords file
    - Do NOT include direct SeleniumLibrary calls in test cases
-   - Add [Documentation] for each test case
-   - Add [Tags] for categorization
+   - Add [Documentation] and [Tags] for each test case
 
 3. KEYWORDS FILE (keywords.robot):
-   - Include *** Keywords *** section
+   - Include *** Keywords ***
    - Create reusable keywords for ALL UI interactions
    - Keywords must accept arguments for dynamic test data
-   - Use clear, descriptive keyword names (e.g., "Input Username", "Click Login Button", "Verify Error Message")
-   - Do NOT hardcode any test data or locators inside keywords
-   - Include proper documentation for each keyword
-   - Use SeleniumLibrary keywords properly (Input Text, Click Button, Wait Until Element Is Visible, etc.)
+   - Use clear, descriptive keyword names (e.g., "Input Username", "Click Login Button")
+   - Do NOT hardcode any test data inside keywords
+   - Use SeleniumLibrary keywords properly
 
 4. DATA FILE (testdata.py):
-   - Create a Python variables file for Robot Framework
-   - Store all test data as Python variables
-   - Use a flat structure, not nested
-   - Include variables for: valid credentials, invalid credentials, error messages, URLs
-   - Example structure:
-     USERNAME = ""
-     PASSWORD = ""
-     INVALID_USERNAME = ""
-     INVALID_PASSWORD = ""
-     ERROR_MESSAGE = ""
-     BASE_URL = ""
+   - Python variables file for Robot Framework
+   - Flat structure, not nested
+   - Include variables for credentials, error messages, URLs
 
-5. STYLE REQUIREMENTS:
-   - Use 4-space indentation for Robot Framework
-   - Use clear, readable keyword names in Title Case
-   - Follow Robot Framework best practices
-   - Make the code executable without modification
+5. STYLE:
+   - 4-space indentation
+   - Title Case keyword names
+   - Executable without modification
 
 Generate ONLY the code with the markers. No explanations.`;
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY not configured');
-    }
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 8192,
-          },
-        }),
-      }
-    );
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-3-flash-preview',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      
-      if (response.status === 429 || errorText.includes('quota') || errorText.includes('rate')) {
+      console.error('AI gateway error:', response.status, errorText);
+
+      if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'AI Generation limit reached. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(`Gemini API error: ${response.status}`);
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw new Error(`AI gateway error: ${response.status}`);
     }
 
     const data = await response.json();
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
+    const generatedText = data.choices?.[0]?.message?.content?.trim() || '';
+
+    if (!generatedText) {
+      throw new Error('No content received from AI');
+    }
+
     console.log('Generated text length:', generatedText.length);
 
-    // Parse the generated code
+    // Parse sections
     const extractSection = (text: string, startMarker: string, endMarker: string): string => {
       const startIdx = text.indexOf(startMarker);
       const endIdx = text.indexOf(endMarker);
@@ -144,13 +137,24 @@ Generate ONLY the code with the markers. No explanations.`;
     const keywords = extractSection(generatedText, '===KEYWORDS_START===', '===KEYWORDS_END===');
     const dataFile = extractSection(generatedText, '===DATA_FILE_START===', '===DATA_FILE_END===');
 
-    console.log('Parsed sections - Robot Test:', robotTest.length, 'Keywords:', keywords.length, 'Data:', dataFile.length);
+    // Fallback if markers weren't found — return the whole text as testFile
+    if (!robotTest && !keywords && !dataFile) {
+      console.warn('Markers not found in AI output, returning raw text as testFile');
+      return new Response(
+        JSON.stringify({
+          pageObject: '# Keywords could not be parsed separately\n# Please review the test file for all content',
+          testFile: generatedText,
+          dataFile: '# No data file was generated',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
       JSON.stringify({
-        pageObject: keywords, // Keywords file (reusable keywords)
-        testFile: robotTest,  // Test file
-        dataFile: dataFile,   // Data variables file
+        pageObject: keywords || '# No keywords generated',
+        testFile: robotTest || '# No test file generated',
+        dataFile: dataFile || '# No data file generated',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -158,7 +162,7 @@ Generate ONLY the code with the markers. No explanations.`;
   } catch (error) {
     console.error('Error generating Robot Framework code:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to generate Robot Framework code' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to generate Robot Framework code' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

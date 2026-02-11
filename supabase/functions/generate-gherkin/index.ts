@@ -19,22 +19,39 @@ serve(async (req) => {
     }
 
     const prompt = `
-You are a QA engineer generating test scenarios.
+You are a senior QA engineer writing Gherkin BDD scenarios.
 
 Generate a Gherkin feature file based on this info:
 URL: ${url}
 Scenario description: ${scenarioDesc}
 
-Requirements:
-- Include a clear and concise Feature title.
-- Break down the description into multiple independent Scenarios (not too big).
-- Each Scenario must follow the real user flow logically from start to finish.
-- Each Scenario must have Given, When, Then steps.
-- Use meaningful step details (e.g., "Given the user navigates to the login page", 
-  "When the user fills 'username' with 'validUser'").
-- Be specific with actions and expected results, not generic.
-- Use actual UI references if possible (buttons, fields, labels).
-- Output ONLY the Gherkin content without explanation.
+STRICT FORMAT RULES:
+1. Start with a Feature line, then the BDD narrative:
+   Feature: <Feature Name>
+     As a <role>
+     I want <goal>
+     So that <benefit>
+
+2. Scenario naming:
+   - Concise, readable titles
+   - Do NOT include numbered steps, URLs, or technical IDs in scenario titles
+
+3. Step structure:
+   - Given: preconditions or initial state
+   - When: a single main user action
+   - And: additional user actions (after When)
+   - Then: expected outcome
+   - And: additional expected outcomes (after Then)
+
+4. Formatting:
+   - Do NOT include numbering (1., 2., 3.) inside steps
+   - Each step must be on its own line
+   - Do NOT place multiple actions inside a single When step
+   - Error messages must be part of Then or And steps
+
+5. Be specific with actions and expected results using actual UI references (buttons, fields, labels).
+
+6. Output ONLY the Gherkin content. No explanation, no markdown fences.
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -69,11 +86,14 @@ Requirements:
     }
 
     const data = await response.json();
-    const gherkin = data.choices?.[0]?.message?.content?.trim();
+    let gherkin = data.choices?.[0]?.message?.content?.trim();
 
     if (!gherkin) {
       throw new Error("No content received from AI");
     }
+
+    // Strip markdown fences if present
+    gherkin = gherkin.replace(/^```(?:gherkin)?\n?/i, '').replace(/\n?```$/i, '').trim();
 
     return new Response(
       JSON.stringify({ gherkin }),
