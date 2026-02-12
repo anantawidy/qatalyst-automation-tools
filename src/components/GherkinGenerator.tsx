@@ -163,115 +163,87 @@ Feature: ${scenarioDesc}
     
     setIsGenerating(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       const headers = csvData[0];
       const dataRows = csvData.slice(1);
       
-      // Find column indices based on exact header names you specified
-      const noIndex = headers.findIndex(h => h.trim() === 'No');
-      const testCaseIndex = headers.findIndex(h => h.trim() === 'Test Case');
-      const descriptionIndex = headers.findIndex(h => h.trim() === 'Test Case Description');
-      const preconditionsIndex = headers.findIndex(h => h.trim() === 'Preconditions');
-      const stepsIndex = headers.findIndex(h => h.trim() === 'Test Steps');
-      const expectedIndex = headers.findIndex(h => h.trim() === 'Expected Result');
+      // Build structured text from CSV for AI transformation
+      const structuredLines: string[] = [];
       
-      let allScenarios = '';
-      let featureTitle = 'CSV Generated Test Cases';
-      
-      if (dataRows.length > 0) {
-        featureTitle = `Feature: Automated Test Scenarios`;
-        allScenarios += `${featureTitle}\n  As a user\n  I want to validate various functionality\n  So that the system works as expected\n\n`;
-      }
+      dataRows.forEach((row) => {
+        if (row.some(cell => cell && cell.trim())) {
+          const getCol = (name: string) => {
+            const idx = headers.findIndex(h => h.trim().toLowerCase().includes(name.toLowerCase()));
+            return idx >= 0 ? (row[idx] || '').trim() : '';
+          };
+          
+          const id = getCol('No') || getCol('ID') || getCol('Test Case ID');
+          const testCase = getCol('Test Case');
+          const description = getCol('Description');
+          const preconditions = getCol('Preconditions');
+          const steps = getCol('Steps');
+          const expected = getCol('Expected');
+          const locators = getCol('Locator') || getCol('Selector');
+          const testData = getCol('Data') || getCol('Input');
 
-      dataRows.forEach((row, index) => {
-        if (row.some(cell => cell.trim())) {
-          // Use "Test Case" column for scenario name
-          const testCase = row[testCaseIndex] || `Test Case ${index + 1}`;
-          const description = row[descriptionIndex] || '';
-          const preconditions = row[preconditionsIndex] || '';
-          const testSteps = row[stepsIndex] || '';
-          const expectedResult = row[expectedIndex] || '';
-          
-          allScenarios += `  Scenario: ${testCase}\n`;
-          
-          // Use "Preconditions" for Given steps (URL and Credentials)
-          if (preconditions.trim()) {
-            // Split by comma, semicolon, or newline
-            const preconditionLines = preconditions.split(/[,;\n]/).map(p => p.trim()).filter(p => p);
-            preconditionLines.forEach(precondition => {
-              if (precondition.toLowerCase().includes('url:')) {
-                const url = precondition.replace(/url:\s*/i, '').trim();
-                allScenarios += `    Given I navigate to "${url}"\n`;
-              } else if (precondition.toLowerCase().includes('login') || precondition.toLowerCase().includes('credentials')) {
-                allScenarios += `    Given I am logged in with valid credentials\n`;
-              } else if (precondition.toLowerCase().includes('auth')) {
-                allScenarios += `    Given I am authenticated as authorized user\n`;
-              } else {
-                allScenarios += `    Given ${precondition}\n`;
-              }
-            });
-          } else {
-            allScenarios += `    Given the system is ready\n`;
-          }
-          
-          // Use "Test Steps" for When and And steps - Enhanced multi-line handling
-          if (testSteps.trim()) {
-            // Split by comma, semicolon, newline, or numbered list (1., 2., etc.)
-            const stepLines = testSteps
-              .split(/[,;\n]|(?=\d+\.)/)
-              .map(s => s.trim())
-              .map(s => s.replace(/^\d+\.\s*/, '')) // Remove numbering like "1. ", "2. "
-              .filter(s => s);
-            
-            stepLines.forEach((step, stepIndex) => {
-              if (stepIndex === 0) {
-                allScenarios += `    When ${step}\n`;
-              } else {
-                allScenarios += `    And ${step}\n`;
-              }
-            });
-          } else {
-            allScenarios += `    When I execute the test action\n`;
-          }
-          
-          // Use "Expected Result" for Then steps - Handle multiple lines
-          if (expectedResult.trim()) {
-            // Split by comma, semicolon, newline, or numbered list to handle multiple expected results
-            const resultLines = expectedResult
-              .split(/[,;\n]|(?=\d+\.)/)
-              .map(r => r.trim())
-              .map(r => r.replace(/^\d+\.\s*/, '')) // Remove numbering like "1. ", "2. "
-              .filter(r => r);
-            
-            resultLines.forEach((result, resultIndex) => {
-              if (resultIndex === 0) {
-                allScenarios += `    Then ${result}\n`;
-              } else {
-                allScenarios += `    And ${result}\n`;
-              }
-            });
-          } else {
-            allScenarios += `    Then the system should work correctly\n`;
-          }
-          
-          allScenarios += '\n';
+          structuredLines.push(`---`);
+          if (id) structuredLines.push(`Test Case ID: ${id}`);
+          if (testCase) structuredLines.push(`Test Case: ${testCase}`);
+          if (description) structuredLines.push(`Description: ${description}`);
+          if (preconditions) structuredLines.push(`Preconditions: ${preconditions}`);
+          if (steps) structuredLines.push(`Test Steps: ${steps}`);
+          if (expected) structuredLines.push(`Expected Result: ${expected}`);
+          if (locators) structuredLines.push(`Locators: ${locators}`);
+          if (testData) structuredLines.push(`Test Data: ${testData}`);
         }
       });
 
-      handleGherkinChange(allScenarios.trim());
-      onGherkinGenerated?.(allScenarios.trim(), featureTitle);
+      const scenarioDesc = structuredLines.join('\n');
+      
+      // Extract URL from preconditions if available
+      let extractedUrl = 'https://application-under-test.com';
+      for (const row of dataRows) {
+        const precIdx = headers.findIndex(h => h.trim().toLowerCase().includes('preconditions'));
+        if (precIdx >= 0 && row[precIdx]) {
+          const urlMatch = row[precIdx].match(/https?:\/\/[^\s,;]+/);
+          if (urlMatch) {
+            extractedUrl = urlMatch[0];
+            break;
+          }
+        }
+      }
+
+      const gherkin = await generateGherkinFromAI(extractedUrl, scenarioDesc);
+      
+      handleGherkinChange(gherkin);
+      const title = extractScenarioTitle(gherkin);
+      onGherkinGenerated?.(gherkin, title);
       
       toast({
-        title: "Tests Generated from CSV",
-        description: `Successfully generated ${dataRows.length} test scenarios from CSV data.`,
+        title: "Gherkin Generated from CSV",
+        description: `${dataRows.length} test cases transformed into BDD scenarios using AI.`,
       });
     } catch (error) {
-      toast({
-        title: "Generation Failed",
-        description: "Failed to generate tests from CSV. Please try again.",
-        variant: "destructive",
-      });
+      console.error('CSV Gherkin generation error:', error);
+      
+      if (error instanceof Error && error.message === 'RATE_LIMIT') {
+        toast({
+          title: "Rate Limit Exceeded",
+          description: "Too many requests. Please try again in a moment.",
+          variant: "destructive",
+        });
+      } else if (error instanceof Error && error.message === 'PAYMENT_REQUIRED') {
+        toast({
+          title: "Credits Required",
+          description: "Please add credits to continue using AI features.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Generation Failed",
+          description: "Failed to generate Gherkin from CSV. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsGenerating(false);
     }
