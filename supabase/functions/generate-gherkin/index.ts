@@ -56,59 +56,92 @@ serve(async (req) => {
       );
     }
 
-    const prompt = `You are a senior QA engineer and BDD specialist. Your task is to TRANSFORM the provided scenario description into properly structured Gherkin BDD scenarios.
+    const prompt = `You are a Senior QA Automation Architect and BDD specialist.
 
-CRITICAL: You must REWRITE and TRANSFORM the input into natural BDD language. Do NOT copy raw input text directly into steps. Convert imperative instructions into declarative, human-readable Gherkin.
+Your task is to TRANSFORM structured test case data into professional, well-written Gherkin BDD scenarios.
+
+CRITICAL: You must REWRITE and TRANSFORM the input into natural BDD language. Do NOT copy raw input text directly into steps. Do NOT perform template concatenation. Convert imperative instructions into declarative, human-readable Gherkin.
 
 INPUT:
 URL: ${sanitizedUrl}
-Scenario description: ${sanitizedDesc}
+Structured test case data:
+${sanitizedDesc}
 
-══════════════════════════════════════════
-STRICT FORMAT RULES — VIOLATING ANY RULE IS A FAILURE
-══════════════════════════════════════════
+══════════════════════════════════
+TRANSFORMATION RULES
+══════════════════════════════════
 
-1. FEATURE HEADER (required):
-   Feature: <Short Descriptive Name>
-     As a <role>
+1. Generate a proper Feature section:
+   Feature: <Functional Area Name>
+     As a <realistic user role>
      I want <goal>
-     So that <benefit>
+     So that <business value>
 
-2. SCENARIO TITLES:
-   - Concise, descriptive, human-readable
-   - NEVER include numbered steps (1., 2., 3.)
-   - NEVER include URLs or technical identifiers
-   - NEVER include implementation details
+2. Each Test Case ID in the input must become ONE Scenario.
+
+3. Scenario Title:
+   - Use the Test Description, rewritten to be concise and professional
+   - Do NOT include the Test Case ID in the title
+   - Do NOT include numbering (1., 2., 3.)
+   - Do NOT include URLs or technical identifiers
    - GOOD: "Scenario: Successful login with valid credentials"
-   - BAD: "Scenario: 1. Navigate to https://example.com and enter username"
+   - BAD: "Scenario: TC001 - 1. Navigate to https://example.com"
 
-3. STEP CLASSIFICATION (each step on its own line, 4-space indent):
-   Given → precondition or initial state (ONE per line)
-   When  → the FIRST main user action
-   And   → additional user actions (after When, one per line)
-   Then  → ONE expected outcome
-   And   → additional expected outcomes (after Then, one per line)
-
-4. TRANSFORMATION RULES (MANDATORY):
-   - REMOVE all numbering (1., 2., 3.) from steps
-   - REMOVE URLs from step text — refer to pages by name instead
-   - CONVERT imperative steps ("Click the button", "Type username") into natural BDD language ("the user clicks the Login button", "the user enters a valid username")
-   - SPLIT compound actions — each And step must contain exactly ONE action
+4. Step Transformation:
+   - Convert raw Test Steps into natural BDD language
+   - Remove all numbering (1., 2., etc.)
+   - Split compound actions into separate steps
+   - Use:
+       Given → precondition or initial state
+       When  → the FIRST user action
+       And   → additional user actions (after When)
+       Then  → first expected result
+       And   → additional validations (after Then)
+   - Each step must contain exactly ONE action or validation
    - NEVER combine multiple actions in a single When or And step
-   - NEVER leave raw text, comments, or prose outside of Gherkin steps
-   - Error messages MUST appear in Then or And steps:
-     Then an error message "Error text here" should be displayed
 
-5. FORMATTING:
-   - No blank lines between steps within a scenario
-   - ONE blank line between scenarios
-   - 2-space indent for narrative (As a/I want/So that)
-   - 4-space indent for steps (Given/When/And/Then)
-   - No markdown fences, no comments, no explanations
+5. Expected Result handling:
+   - Convert into Then/And validation steps
+   - If error messages exist, wrap them in quotes:
+       Then an error message "Invalid password" should be displayed
 
-6. OUTPUT: Raw Gherkin text ONLY. Nothing else.
+6. Locators:
+   - NEVER expose locators (CSS selectors, XPaths, IDs) in the output
+   - They are technical details and must be completely ignored
 
-EXAMPLE OUTPUT:
+7. Test Data integration:
+   - Integrate test data naturally into steps
+   - "username: admin" → "the user enters a valid username"
+   - "password: wrong123" → "the user enters an invalid password"
+   - Do NOT expose raw variable names or values unless they are user-facing text
+
+8. Avoid:
+   - Robotic phrasing
+   - Repeating identical step structure across every scenario
+   - Generic sentences like "the system should work correctly"
+   - Implementation details, URLs, locator references
+   - Markdown fences, comments, or explanations
+   - Raw text outside of Gherkin steps
+
+9. Variability:
+   - Do NOT generate identical step patterns for every scenario
+   - Vary expected outcome phrasing across scenarios
+   - Include validation depth where applicable (e.g., page content checks, element visibility)
+
+══════════════════════════════════
+FORMATTING RULES
+══════════════════════════════════
+
+- 2-space indent for narrative (As a / I want / So that)
+- 4-space indent for steps (Given / When / And / Then)
+- No blank lines between steps within a scenario
+- ONE blank line between scenarios
+- Output raw Gherkin text ONLY — no explanation, no markdown
+
+══════════════════════════════════
+EXAMPLE OUTPUT
+══════════════════════════════════
+
 Feature: Login Functionality
   As a user
   I want to login into the system
