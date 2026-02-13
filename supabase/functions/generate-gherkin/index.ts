@@ -56,77 +56,77 @@ serve(async (req) => {
       );
     }
 
-    const prompt = `You are a Senior QA Automation Architect and BDD specialist.
+    const prompt = `You are a Senior QA Automation Architect.
 
-Your task is to TRANSFORM structured test case data into professional, well-written Gherkin BDD scenarios.
+You will receive structured test case data extracted from a CSV file.
+Each block separated by --- represents ONE test case.
 
-CRITICAL: You must REWRITE and TRANSFORM the input into natural BDD language. Do NOT copy raw input text directly into steps. Do NOT perform template concatenation. Convert imperative instructions into declarative, human-readable Gherkin.
+Your task:
+Transform each block into ONE well-written, professional Gherkin Scenario.
+
+CRITICAL:
+Do NOT copy raw steps directly.
+You must REWRITE them into clean, natural BDD language.
+Do NOT perform template concatenation.
+Convert imperative instructions into declarative, human-readable Gherkin.
 
 INPUT:
 URL: ${sanitizedUrl}
-Structured test case data:
+Structured test case data (blocks separated by ---):
 ${sanitizedDesc}
 
 ══════════════════════════════════
 TRANSFORMATION RULES
 ══════════════════════════════════
 
-1. Generate a proper Feature section:
-   Feature: <Functional Area Name>
+1. Generate a proper Feature header:
+   Feature: <Functional Area>
      As a <realistic user role>
      I want <goal>
      So that <business value>
 
-2. Each Test Case ID in the input must become ONE Scenario.
-
-3. Scenario Title:
-   - Use the Test Description, rewritten to be concise and professional
-   - Do NOT include the Test Case ID in the title
-   - Do NOT include numbering (1., 2., 3.)
-   - Do NOT include URLs or technical identifiers
-   - GOOD: "Scenario: Successful login with valid credentials"
-   - BAD: "Scenario: TC001 - 1. Navigate to https://example.com"
-
-4. Step Transformation:
-   - Convert raw Test Steps into natural BDD language
-   - Remove all numbering (1., 2., etc.)
+2. For each block:
+   - Use Test Case ID only as internal reference
+   - The Test Description becomes the Scenario title, rewritten to be concise and professional
+   - Do NOT include the Test Case ID in the Scenario title
+   - Do NOT include numbering like 1., 2., etc.
+   - Do NOT include URLs or technical identifiers in titles or steps
+   - Convert imperative steps into declarative BDD steps
    - Split compound actions into separate steps
-   - Use:
-       Given → precondition or initial state
-       When  → the FIRST user action
-       And   → additional user actions (after When)
-       Then  → first expected result
-       And   → additional validations (after Then)
-   - Each step must contain exactly ONE action or validation
-   - NEVER combine multiple actions in a single When or And step
+   - One action per step
 
-5. Expected Result handling:
-   - Convert into Then/And validation steps
-   - If error messages exist, wrap them in quotes:
-       Then an error message "Invalid password" should be displayed
+3. Step mapping:
+   Preconditions → Given
+   First action → When
+   Additional actions → And
+   Expected Result → Then / And
 
-6. Locators:
-   - NEVER expose locators (CSS selectors, XPaths, IDs) in the output
-   - They are technical details and must be completely ignored
+4. Locators:
+   Completely ignore locators. NEVER expose CSS selectors, XPaths, or IDs in output.
 
-7. Test Data integration:
-   - Integrate test data naturally into steps
-   - "username: admin" → "the user enters a valid username"
-   - "password: wrong123" → "the user enters an invalid password"
-   - Do NOT expose raw variable names or values unless they are user-facing text
+5. Test Data:
+   Integrate naturally into the steps.
+   "username: admin" → "the user enters a valid username"
+   "password: wrong123" → "the user enters an invalid password"
+   Do NOT expose raw variable names or values unless they are user-facing text.
 
-8. Avoid:
+6. Expected Result handling:
+   Convert into Then/And validation steps.
+   If error messages exist, wrap them in quotes:
+     Then an error message "Invalid password" should be displayed
+
+7. Avoid:
+   - Repeating identical structure across scenarios
    - Robotic phrasing
-   - Repeating identical step structure across every scenario
-   - Generic sentences like "the system should work correctly"
+   - Generic statements like "system works correctly"
    - Implementation details, URLs, locator references
    - Markdown fences, comments, or explanations
    - Raw text outside of Gherkin steps
 
-9. Variability:
-   - Do NOT generate identical step patterns for every scenario
-   - Vary expected outcome phrasing across scenarios
-   - Include validation depth where applicable (e.g., page content checks, element visibility)
+8. Variability:
+   Do NOT generate identical step patterns for every scenario.
+   Vary expected outcome phrasing across scenarios.
+   Include validation depth where applicable (e.g., page content checks, element visibility).
 
 ══════════════════════════════════
 FORMATTING RULES
@@ -144,8 +144,8 @@ EXAMPLE OUTPUT
 
 Feature: Login Functionality
   As a user
-  I want to login into the system
-  So that I can access the products page
+  I want to log in to the system
+  So that I can access my dashboard
 
   Scenario: Successful login with valid credentials
     Given the user is on the login page
