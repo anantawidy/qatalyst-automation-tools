@@ -124,7 +124,8 @@ const CodeOutput = ({
         body: { 
           testCases: testData.testCases,
           locators: testData.locators,
-          testData: testData.testData
+          testData: testData.testData,
+          moduleName: deriveModuleName()
         }
       });
 

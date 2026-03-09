@@ -84,6 +84,11 @@ ${JSON.stringify(testData, null, 2)}
 
 Generate Selenium WebDriver test code with THREE separate outputs:
 
+**IMPORTANT FILE NAMING:**
+- The Page Object class MUST be named "${pageObjectFileName}" and exported as such
+- The Test File MUST import the page object using: const { ${pageObjectFileName} } = require('./${pageObjectFileName}');
+- File names: Page Object = "${pageObjectFileName}.js", Test File = "${testFileName}"
+
 **REQUIREMENTS:**
 1. Use Selenium WebDriver with JavaScript
 2. Must use Mocha as test runner + Chai for assertions
@@ -94,14 +99,16 @@ Generate Selenium WebDriver test code with THREE separate outputs:
 7. Test file should only call Page Object methods
 8. DO NOT hardcode locators or test data inside test files
 
-**PAGE OBJECT FILE:**
+**PAGE OBJECT FILE (${pageObjectFileName}.js):**
+- Export class named "${pageObjectFileName}"
 - Constructor that accepts driver instance
 - All locators as class properties using By.css(), By.id(), By.xpath()
 - Reusable action methods (login, fillForm, clickButton, waitForElement, etc.)
 - Proper async/await handling
 - Import test data from data file
 
-**TEST FILE:**
+**TEST FILE (${testFileName}):**
+- MUST import: const { ${pageObjectFileName} } = require('./${pageObjectFileName}');
 - Single WebDriver instance created in before() hook
 - Driver quit in after() hook
 - All test cases share the same driver instance

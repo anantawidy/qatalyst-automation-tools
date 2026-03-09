@@ -84,6 +84,11 @@ ${JSON.stringify(testData, null, 2)}
 
 Generate Playwright test code with THREE separate outputs:
 
+**IMPORTANT FILE NAMING:**
+- The Page Object class MUST be named "${pageObjectFileName}" and exported as such
+- The Test File MUST import the page object using: import { ${pageObjectFileName} } from './${pageObjectFileName}';
+- File names: Page Object = "${pageObjectFileName}.ts", Test File = "${testFileName}"
+
 **REQUIREMENTS:**
 1. Use Playwright Test Runner (@playwright/test)
 2. Must implement Page Object Model (POM)
@@ -92,14 +97,16 @@ Generate Playwright test code with THREE separate outputs:
 5. All assertions should preferably be inside the Page Object methods
 6. DO NOT hardcode locators or test data inside test files
 
-**PAGE OBJECT FILE:**
+**PAGE OBJECT FILE (${pageObjectFileName}.ts):**
+- Export class named "${pageObjectFileName}"
 - All locators as class properties (imported or defined)
 - Reusable action methods (login, fillForm, clickButton, etc.)
 - Use getByRole, getByLabel, getByPlaceholder, getByText where possible
 - Fallback to locator() for CSS/XPath selectors
 - Import test data from data file
 
-**TEST FILE:**
+**TEST FILE (${testFileName}):**
+- MUST import: import { ${pageObjectFileName} } from './${pageObjectFileName}';
 - Clean and high-level, calling Page Object methods
 - Use describe() block for grouping
 - Each test case as separate test() block
