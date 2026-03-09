@@ -55,6 +55,8 @@ serve(async (req) => {
     }
 
     const { testCases, locators, testData } = sanitizePayload(body);
+    const moduleName = String(body.moduleName || "Login").slice(0, 50);
+    const testFileName = `${moduleName.toLowerCase()}.cy.js`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -94,7 +96,7 @@ Generate Cypress test code with THREE separate outputs:
 - All locators defined as constants at the top
 - Chain commands properly
 
-**TEST FILE (spec file):**
+**TEST FILE (${testFileName}):**
 - Use describe() and it() blocks
 - before() hook for one-time setup (visit page)
 - Call custom commands instead of direct cy.get() where possible

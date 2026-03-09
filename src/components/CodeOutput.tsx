@@ -124,7 +124,8 @@ const CodeOutput = ({
         body: { 
           testCases: testData.testCases,
           locators: testData.locators,
-          testData: testData.testData
+          testData: testData.testData,
+          moduleName: deriveModuleName()
         }
       });
 
@@ -196,18 +197,43 @@ const CodeOutput = ({
     });
   };
 
+  const deriveModuleName = (): string => {
+    if (!testData.testCases.length) return "Page";
+    
+    // Try to extract module from test case ID (e.g., "TC_LOGIN_001" → "Login", "TC_CART_001" → "Cart")
+    const firstId = testData.testCases[0].id || "";
+    const idMatch = firstId.match(/^TC[_-]([A-Za-z]+)/i);
+    if (idMatch) {
+      const raw = idMatch[1].toLowerCase();
+      return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
+    
+    // Fallback: use first word of description
+    const desc = testData.testCases[0].description || "";
+    const descWord = desc.split(/[\s_-]+/).find(w => w.length > 2);
+    if (descWord) {
+      const clean = descWord.replace(/[^a-zA-Z]/g, '');
+      return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+    }
+    
+    return "Page";
+  };
+
+  const moduleName = deriveModuleName();
+
   const getFileNames = () => {
+    const lower = moduleName.toLowerCase();
     switch (type) {
       case "playwright":
-        return { pageObject: "LoginPage.ts", testFile: "login.spec.ts", dataFile: "testData.json" };
+        return { pageObject: `${moduleName}Page.ts`, testFile: `${lower}.spec.ts`, dataFile: "testData.json" };
       case "selenium":
-        return { pageObject: "LoginPage.js", testFile: "login.test.js", dataFile: "testData.json" };
+        return { pageObject: `${moduleName}Page.js`, testFile: `${lower}.test.js`, dataFile: "testData.json" };
       case "cypress":
-        return { pageObject: "commands.js", testFile: "login.cy.js", dataFile: "testData.json" };
+        return { pageObject: "commands.js", testFile: `${lower}.cy.js`, dataFile: "testData.json" };
       case "robot":
         return { pageObject: "keywords.robot", testFile: "tests.robot", dataFile: "testdata.py" };
       default:
-        return { pageObject: "page.js", testFile: "test.js", dataFile: "testData.json" };
+        return { pageObject: `${moduleName}Page.js`, testFile: `${lower}.test.js`, dataFile: "testData.json" };
     }
   };
 
