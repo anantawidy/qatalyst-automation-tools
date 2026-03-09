@@ -174,26 +174,28 @@ TC004,Verify forgot password link navigation,Click forgot password link,Password
             </Button>
           </div>
           
-          <div className="max-h-48 overflow-auto rounded border border-slate-700 bg-slate-900">
+          <div className="max-h-60 overflow-auto rounded border border-slate-700 bg-slate-900">
             <table className="w-full text-xs">
               <thead className="bg-slate-800 sticky top-0">
                 <tr>
-                  <th className="p-2 text-left text-slate-400 font-medium">ID</th>
+                  <th className="p-2 text-left text-slate-400 font-medium w-[120px]">ID</th>
+                  <th className="p-2 text-left text-slate-400 font-medium w-[180px]">Description</th>
                   <th className="p-2 text-left text-slate-400 font-medium">Steps</th>
-                  <th className="p-2 text-left text-slate-400 font-medium">Expected</th>
+                  <th className="p-2 text-left text-slate-400 font-medium w-[200px]">Expected</th>
                 </tr>
               </thead>
               <tbody>
                 {testData.testCases.slice(0, 5).map((tc, i) => (
                   <tr key={i} className="border-b border-slate-700 last:border-0">
-                    <td className="p-2 text-blue-400 font-mono">{tc.id}</td>
-                    <td className="p-2 text-slate-300 truncate max-w-[200px]">{tc.steps}</td>
+                    <td className="p-2 text-blue-400 font-mono whitespace-nowrap">{tc.id}</td>
+                    <td className="p-2 text-slate-300 truncate max-w-[180px]">{tc.description}</td>
+                    <td className="p-2 text-slate-300 truncate max-w-[250px]">{tc.steps}</td>
                     <td className="p-2 text-slate-300 truncate max-w-[200px]">{tc.expected}</td>
                   </tr>
                 ))}
                 {testData.testCases.length > 5 && (
                   <tr>
-                    <td colSpan={3} className="p-2 text-center text-slate-500">
+                    <td colSpan={4} className="p-2 text-center text-slate-500">
                       +{testData.testCases.length - 5} more test cases
                     </td>
                   </tr>
