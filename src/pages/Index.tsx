@@ -88,6 +88,21 @@ const Index = () => {
               <h2 className="text-lg font-semibold text-white">Select Output Type</h2>
             </div>
             
+            {/* Documentation */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">Documentation / BDD</h3>
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={() => handleSelectOutput("gherkin")}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  size="lg"
+                >
+                  <FileText className="h-5 w-5 mr-2" />
+                  Generate Gherkin
+                </Button>
+              </div>
+            </div>
+
             {/* Automation Framework */}
             <div>
               <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">Automation Framework</h3>
