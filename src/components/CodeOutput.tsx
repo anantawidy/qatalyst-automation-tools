@@ -120,18 +120,36 @@ const CodeOutput = ({
                          type === "cypress" ? "generate-cypress" : "generate-robot";
     
     try {
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { 
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/${functionName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
           testCases: testData.testCases,
           locators: testData.locators,
           testData: testData.testData,
           moduleName: deriveModuleName()
-        }
+        }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
-      if (error) {
-        throw new Error(error.message || 'Unknown error');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
+
+      const data = await response.json();
 
       if (data?.error) {
         throw new Error(data.error);
@@ -158,6 +176,9 @@ const CodeOutput = ({
       });
     } catch (err: any) {
       console.error(`Error generating ${type}:`, err);
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out. The AI model is taking too long. Please try again.');
+      }
       throw err;
     }
   };
