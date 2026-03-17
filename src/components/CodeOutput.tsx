@@ -62,11 +62,7 @@ const CodeOutput = ({
     setErrorMessage(null);
     
     try {
-      if (type === "gherkin") {
-        generateGherkin();
-      } else {
-        await generateAutomationCode();
-      }
+      await generateAutomationCode();
     } catch (error: any) {
       console.error('Error generating code:', error);
       const errorMsg = error?.message?.toLowerCase() || '';
@@ -87,35 +83,9 @@ const CodeOutput = ({
     }
   };
 
-  const generateGherkin = () => {
-    let gherkin = `Feature: Automated Test Scenarios
-  As a tester
-  I want to validate the system functionality
-  So that the application works correctly
-
-`;
-
-    testData.testCases.forEach((tc) => {
-      gherkin += `  Scenario: ${tc.id} - ${tc.steps?.split(' ').slice(0, 5).join(' ') || 'Test scenario'}
-    Given the system is ready
-    When ${tc.steps || 'I execute the test action'}
-    Then ${tc.expected || 'the expected result should occur'}
-
-`;
-    });
-
-    const finalCode = gherkin.trim();
-    setGherkinCode(finalCode);
-    onCodeGenerated(finalCode);
-    
-    toast({
-      title: "Gherkin Generated",
-      description: `${testData.testCases.length} test cases converted to Gherkin.`,
-    });
-  };
-
   const generateAutomationCode = async () => {
-    const functionName = type === "playwright" ? "generate-playwright" : 
+    const functionName = type === "gherkin" ? "generate-gherkin" :
+                         type === "playwright" ? "generate-playwright" : 
                          type === "selenium" ? "generate-selenium" : 
                          type === "cypress" ? "generate-cypress" : "generate-robot";
     
