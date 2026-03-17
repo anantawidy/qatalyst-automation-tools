@@ -126,19 +126,25 @@ const CodeOutput = ({
       }
 
       const cleanCode = (code: string) => code
-        .replace(/```javascript/g, '')
-        .replace(/```typescript/g, '')
-        .replace(/```json/g, '')
-        .replace(/```js/g, '')
-        .replace(/```/g, '')
+        .replace(/```(?:javascript|typescript|json|js|gherkin|robot|python)?\n?/g, '')
+        .replace(/\n?```$/g, '')
         .trim();
 
-      const pageObject = cleanCode(data.pageObject || '');
-      const testFile = cleanCode(data.testFile || '');
-      const dataFile = cleanCode(data.dataFile || '');
+      if (type === "gherkin") {
+        const gherkin = cleanCode(data.gherkin || '');
+        setGherkinCode(gherkin);
+        onCodeGenerated(gherkin);
+        toast({
+          title: "Gherkin Generated",
+          description: `${testData.testCases.length} test cases converted to Gherkin.`,
+        });
+      } else {
+        const pageObject = cleanCode(data.pageObject || '');
+        const testFile = cleanCode(data.testFile || '');
+        const dataFile = cleanCode(data.dataFile || '');
 
-      setPomCode({ pageObject, testFile, dataFile });
-      onCodeGenerated(JSON.stringify({ pageObject, testFile, dataFile }));
+        setPomCode({ pageObject, testFile, dataFile });
+        onCodeGenerated(JSON.stringify({ pageObject, testFile, dataFile }));
       
       toast({
         title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
