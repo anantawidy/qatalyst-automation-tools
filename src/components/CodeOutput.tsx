@@ -146,10 +146,11 @@ const CodeOutput = ({
         setPomCode({ pageObject, testFile, dataFile });
         onCodeGenerated(JSON.stringify({ pageObject, testFile, dataFile }));
       
-      toast({
-        title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
-        description: `Page Object, Test file, and Data file generated successfully.`,
-      });
+        toast({
+          title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
+          description: `Page Object, Test file, and Data file generated successfully.`,
+        });
+      }
     } catch (err: any) {
       console.error(`Error generating ${type}:`, err);
       if (err.name === 'AbortError') {
