@@ -5,9 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MAX_URL_LENGTH = 500;
-const MAX_DESC_LENGTH = 2000;
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -15,37 +12,25 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const url = body?.url;
-    const scenarioDesc = body?.scenarioDesc;
+    const testCases = body?.testCases;
 
-    // Input validation
-    if (!url || typeof url !== "string" || url.trim().length === 0) {
+    if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
       return new Response(
-        JSON.stringify({ error: "A valid URL is required." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (url.length > MAX_URL_LENGTH) {
-      return new Response(
-        JSON.stringify({ error: `URL must be less than ${MAX_URL_LENGTH} characters.` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!scenarioDesc || typeof scenarioDesc !== "string" || scenarioDesc.trim().length < 5) {
-      return new Response(
-        JSON.stringify({ error: "A scenario description of at least 5 characters is required." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (scenarioDesc.length > MAX_DESC_LENGTH) {
-      return new Response(
-        JSON.stringify({ error: `Scenario description must be less than ${MAX_DESC_LENGTH} characters.` }),
+        JSON.stringify({ error: "At least one test case is required." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const sanitizedUrl = url.trim().slice(0, MAX_URL_LENGTH);
-    const sanitizedDesc = scenarioDesc.trim().slice(0, MAX_DESC_LENGTH);
+    // Build structured test case text blocks
+    const scenarioBlocks = testCases.map((tc: any) => {
+      const parts = [`Test Case ID: ${tc.id || "N/A"}`];
+      if (tc.description) parts.push(`Description: ${tc.description}`);
+      if (tc.steps) parts.push(`Steps:\n${tc.steps}`);
+      if (tc.expected) parts.push(`Expected Result:\n${tc.expected}`);
+      if (tc.locator) parts.push(`Locators:\n${tc.locator}`);
+      if (tc.testData) parts.push(`Test Data:\n${tc.testData}`);
+      return parts.join("\n");
+    }).join("\n---\n");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -71,9 +56,8 @@ Do NOT perform template concatenation.
 Convert imperative instructions into declarative, human-readable Gherkin.
 
 INPUT:
-URL: ${sanitizedUrl}
 Structured test case data (blocks separated by ---):
-${sanitizedDesc}
+${scenarioBlocks}
 
 ══════════════════════════════════
 TRANSFORMATION RULES
