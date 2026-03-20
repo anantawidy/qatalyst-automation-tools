@@ -109,7 +109,8 @@ const CodeOutput = ({
           testCases: testData.testCases,
           locators: testData.locators,
           testData: testData.testData,
-          moduleName: deriveModuleName()
+          moduleName: deriveModuleName(),
+          ...(gherkinContext ? { gherkinScenarios: gherkinContext } : {}),
         }),
         signal: controller.signal,
       });
