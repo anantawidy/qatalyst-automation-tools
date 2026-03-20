@@ -138,6 +138,14 @@ Output exactly in this format with the separators:
 ===DATA_FILE_END===
 
 Do not include any other text, comments, or markdown code blocks.
+${gherkinScenarios ? `
+
+**GHERKIN INTEGRATION:**
+The following Gherkin scenarios have already been generated for these test cases. Your Page Object methods and test structure MUST align with these Gherkin steps so the code can serve as step definition implementations for BDD frameworks (e.g., cucumber-js). Each Given/When/Then step should map to a Page Object method.
+
+Gherkin Scenarios:
+${gherkinScenarios}
+` : ''}
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
