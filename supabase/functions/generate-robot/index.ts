@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
     }
 
     const { testCases, locators, testData } = sanitizePayload(body);
+    const gherkinScenarios = body.gherkinScenarios ? String(body.gherkinScenarios).slice(0, 10000) : "";
 
     console.log('Generating Robot Framework code for', testCases.length, 'test cases');
 
@@ -167,6 +168,14 @@ STYLE RULES:
 - No hardcoded locators or data anywhere except testdata.py
 - Clean, readable, production-ready code
 
+
+${gherkinScenarios ? `
+GHERKIN INTEGRATION:
+The following Gherkin scenarios have already been generated for these test cases. Your Keywords MUST align with these Gherkin steps so the code can serve as step definition implementations for BDD. Each Given/When/Then step should map to a Keyword.
+
+Gherkin Scenarios:
+${gherkinScenarios}
+` : ''}
 Generate ONLY the code with the markers. No explanations, no markdown fences.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
