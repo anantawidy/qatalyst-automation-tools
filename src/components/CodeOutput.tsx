@@ -24,6 +24,7 @@ interface CodeOutputProps {
   onCodeGenerated: (code: string) => void;
   isGenerating: boolean;
   setIsGenerating: (v: boolean) => void;
+  gherkinContext?: string;
 }
 
 const CodeOutput = ({ 
@@ -32,7 +33,8 @@ const CodeOutput = ({
   generatedCode, 
   onCodeGenerated,
   isGenerating,
-  setIsGenerating
+  setIsGenerating,
+  gherkinContext
 }: CodeOutputProps) => {
   const [pomCode, setPomCode] = useState<GeneratedCode>({ pageObject: '', testFile: '', dataFile: '' });
   const [gherkinCode, setGherkinCode] = useState(generatedCode);
