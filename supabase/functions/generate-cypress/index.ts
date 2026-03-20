@@ -56,6 +56,7 @@ serve(async (req) => {
 
     const { testCases, locators, testData } = sanitizePayload(body);
     const moduleName = String(body.moduleName || "Login").slice(0, 50);
+    const gherkinScenarios = body.gherkinScenarios ? String(body.gherkinScenarios).slice(0, 10000) : "";
     const testFileName = `${moduleName.toLowerCase()}.cy.js`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");

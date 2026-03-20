@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
     }
 
     const { testCases, locators, testData } = sanitizePayload(body);
+    const gherkinScenarios = body.gherkinScenarios ? String(body.gherkinScenarios).slice(0, 10000) : "";
 
     console.log('Generating Robot Framework code for', testCases.length, 'test cases');
 
