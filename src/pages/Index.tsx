@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Code, Sparkles, Play, TestTube, Bot } from "lucide-react";
+import { FileText, Code, Sparkles, Play, TestTube, Bot, Layers, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Footer from "@/components/Footer";
 import CsvUploader, { TestCaseData } from "@/components/CsvUploader";
 import CodeOutput from "@/components/CodeOutput";
+import BddCodeOutput from "@/components/BddCodeOutput";
 import WorkflowSteps from "@/components/WorkflowSteps";
 
 type OutputType = "gherkin" | "playwright" | "selenium" | "cypress" | "robot" | null;
-type FrameworkType = "playwright" | "selenium" | "cypress" | "robot" | null;
+type FrameworkType = "playwright" | "selenium" | "cypress" | "robot";
+type AutomationMode = "classic" | "bdd" | null;
 
 const Index = () => {
   const [testData, setTestData] = useState<TestCaseData | null>(null);
@@ -16,7 +18,9 @@ const Index = () => {
   const [generatedCode, setGeneratedCode] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [gherkinResult, setGherkinResult] = useState("");
-  const [frameworkAfterGherkin, setFrameworkAfterGherkin] = useState<FrameworkType>(null);
+  // Post-Gherkin state
+  const [automationMode, setAutomationMode] = useState<AutomationMode>(null);
+  const [frameworkAfterGherkin, setFrameworkAfterGherkin] = useState<FrameworkType | null>(null);
   const [frameworkCode, setFrameworkCode] = useState("");
   const [isGeneratingFramework, setIsGeneratingFramework] = useState(false);
   const { toast } = useToast();
@@ -26,6 +30,7 @@ const Index = () => {
     setOutputType(null);
     setGeneratedCode("");
     setGherkinResult("");
+    setAutomationMode(null);
     setFrameworkAfterGherkin(null);
     setFrameworkCode("");
   };
@@ -33,6 +38,7 @@ const Index = () => {
   const handleSelectOutput = (type: OutputType) => {
     setGeneratedCode("");
     setGherkinResult("");
+    setAutomationMode(null);
     setFrameworkAfterGherkin(null);
     setFrameworkCode("");
     setOutputType(type);
@@ -51,6 +57,23 @@ const Index = () => {
 
   const hasTestCases = testData && testData.testCases.length > 0;
   const gherkinGenerated = outputType === "gherkin" && gherkinResult.length > 0 && !isGenerating;
+
+  const frameworkButtons = (onClick: (fw: FrameworkType) => void) => (
+    <div className="flex flex-wrap gap-3">
+      <Button onClick={() => onClick("playwright")} className="bg-green-600 hover:bg-green-700 text-white" size="lg">
+        <Code className="h-5 w-5 mr-2" /> Playwright
+      </Button>
+      <Button onClick={() => onClick("selenium")} className="bg-orange-600 hover:bg-orange-700 text-white" size="lg">
+        <TestTube className="h-5 w-5 mr-2" /> Selenium
+      </Button>
+      <Button onClick={() => onClick("cypress")} className="bg-cyan-600 hover:bg-cyan-700 text-white" size="lg">
+        <Play className="h-5 w-5 mr-2" /> Cypress
+      </Button>
+      <Button onClick={() => onClick("robot")} className="bg-rose-600 hover:bg-rose-700 text-white" size="lg">
+        <Bot className="h-5 w-5 mr-2" /> Robot Framework
+      </Button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -79,7 +102,6 @@ const Index = () => {
       </div>
 
       <div className="container mx-auto px-6 py-8 max-w-5xl">
-        {/* Workflow Steps */}
         <WorkflowSteps currentStep={getCurrentStep()} />
 
         {/* Step 1: Upload */}
@@ -88,15 +110,10 @@ const Index = () => {
             <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">1</div>
             <h2 className="text-lg font-semibold text-white">Upload Test Case (CSV)</h2>
           </div>
-          
-          <CsvUploader 
-            onDataLoaded={setTestData}
-            testData={testData}
-            onReset={handleReset}
-          />
+          <CsvUploader onDataLoaded={setTestData} testData={testData} onReset={handleReset} />
         </div>
 
-        {/* Step 2: Generate Options */}
+        {/* Step 2: Select Output Type */}
         {hasTestCases && !outputType && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
@@ -119,49 +136,15 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Automation Framework */}
+            {/* Direct Automation Framework */}
             <div>
-              <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">Automation Framework</h3>
-              <div className="flex flex-wrap gap-3">
-                <Button 
-                  onClick={() => handleSelectOutput("playwright")}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  size="lg"
-                >
-                  <Code className="h-5 w-5 mr-2" />
-                  Generate Playwright
-                </Button>
-                <Button 
-                  onClick={() => handleSelectOutput("selenium")}
-                  className="bg-orange-600 hover:bg-orange-700 text-white"
-                  size="lg"
-                >
-                  <TestTube className="h-5 w-5 mr-2" />
-                  Generate Selenium
-                </Button>
-                <Button 
-                  onClick={() => handleSelectOutput("cypress")}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                  size="lg"
-                >
-                  <Play className="h-5 w-5 mr-2" />
-                  Generate Cypress
-                </Button>
-                <Button 
-                  onClick={() => handleSelectOutput("robot")}
-                  className="bg-rose-600 hover:bg-rose-700 text-white"
-                  size="lg"
-                  title="Keyword-driven automation, ideal for QA and non-developers."
-                >
-                  <Bot className="h-5 w-5 mr-2" />
-                  Generate Robot Framework
-                </Button>
-              </div>
+              <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">Automation Framework (Classic)</h3>
+              {frameworkButtons((fw) => handleSelectOutput(fw))}
             </div>
           </div>
         )}
 
-        {/* Step 3: Output */}
+        {/* Generated Output (Gherkin or Classic Framework) */}
         {outputType && testData && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
@@ -170,8 +153,7 @@ const Index = () => {
                 <h2 className="text-lg font-semibold text-white">Generated Output</h2>
               </div>
               <Button 
-                variant="outline" 
-                size="sm"
+                variant="outline" size="sm"
                 onClick={() => setOutputType(null)}
                 className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
@@ -185,9 +167,7 @@ const Index = () => {
               generatedCode={generatedCode}
               onCodeGenerated={(code) => {
                 setGeneratedCode(code);
-                if (outputType === "gherkin") {
-                  setGherkinResult(code);
-                }
+                if (outputType === "gherkin") setGherkinResult(code);
               }}
               isGenerating={isGenerating}
               setIsGenerating={setIsGenerating}
@@ -195,71 +175,84 @@ const Index = () => {
           </div>
         )}
 
-        {/* Step 3b: After Gherkin → Generate Framework */}
-        {gherkinGenerated && !frameworkAfterGherkin && (
+        {/* Step 3: After Gherkin → Choose Mode */}
+        {gherkinGenerated && !automationMode && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">3</div>
-              <h2 className="text-lg font-semibold text-white">Generate Automation Framework (with Gherkin Integration)</h2>
+              <h2 className="text-lg font-semibold text-white">Select Automation Mode</h2>
             </div>
             <p className="text-slate-400 text-sm mb-4">
-              Generate automation framework code that integrates with the Gherkin scenarios above. The POM will be ready to use with your BDD step definitions.
+              Choose how to generate automation code from your Gherkin scenarios.
             </p>
-            <div className="flex flex-wrap gap-3">
-              <Button 
-                onClick={() => handleSelectFrameworkAfterGherkin("playwright")}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                size="lg"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setAutomationMode("classic")}
+                className="p-5 rounded-lg border-2 border-slate-600 bg-slate-800/50 hover:border-blue-500 hover:bg-slate-800 transition-all text-left group"
               >
-                <Code className="h-5 w-5 mr-2" />
-                Generate Playwright
-              </Button>
-              <Button 
-                onClick={() => handleSelectFrameworkAfterGherkin("selenium")}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
-                size="lg"
+                <div className="flex items-center gap-3 mb-2">
+                  <Zap className="h-6 w-6 text-blue-400" />
+                  <h3 className="text-white font-semibold text-base">Classic Automation</h3>
+                </div>
+                <p className="text-slate-400 text-sm">
+                  Generate Page Object Model (POM) with test file and data file. Direct test scripts integrated with Gherkin.
+                </p>
+              </button>
+              <button
+                onClick={() => setAutomationMode("bdd")}
+                className="p-5 rounded-lg border-2 border-slate-600 bg-slate-800/50 hover:border-indigo-500 hover:bg-slate-800 transition-all text-left group relative"
               >
-                <TestTube className="h-5 w-5 mr-2" />
-                Generate Selenium
-              </Button>
-              <Button 
-                onClick={() => handleSelectFrameworkAfterGherkin("cypress")}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                size="lg"
-              >
-                <Play className="h-5 w-5 mr-2" />
-                Generate Cypress
-              </Button>
-              <Button 
-                onClick={() => handleSelectFrameworkAfterGherkin("robot")}
-                className="bg-rose-600 hover:bg-rose-700 text-white"
-                size="lg"
-              >
-                <Bot className="h-5 w-5 mr-2" />
-                Generate Robot Framework
-              </Button>
+                <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">NEW</span>
+                <div className="flex items-center gap-3 mb-2">
+                  <Layers className="h-6 w-6 text-indigo-400" />
+                  <h3 className="text-white font-semibold text-base">BDD Automation</h3>
+                </div>
+                <p className="text-slate-400 text-sm">
+                  Full BDD architecture: Step Definitions → Abstraction Layer → Framework Adapter. True framework-agnostic engine.
+                </p>
+              </button>
             </div>
           </div>
         )}
 
-        {/* Step 3c: Framework output after Gherkin */}
-        {frameworkAfterGherkin && testData && (
+        {/* Step 3b: Framework selection (both modes) */}
+        {gherkinGenerated && automationMode && !frameworkAfterGherkin && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">3</div>
-                <h2 className="text-lg font-semibold text-white">Framework Code (Gherkin-Integrated)</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  {automationMode === "bdd" ? "Select Framework for BDD Architecture" : "Select Framework (Classic + Gherkin)"}
+                </h2>
               </div>
               <Button 
-                variant="outline" 
-                size="sm"
+                variant="outline" size="sm"
+                onClick={() => setAutomationMode(null)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                Back to Mode Selection
+              </Button>
+            </div>
+            {frameworkButtons(handleSelectFrameworkAfterGherkin)}
+          </div>
+        )}
+
+        {/* Step 3c: Classic framework output */}
+        {frameworkAfterGherkin && automationMode === "classic" && testData && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">3</div>
+                <h2 className="text-lg font-semibold text-white">Framework Code (Classic + Gherkin)</h2>
+              </div>
+              <Button 
+                variant="outline" size="sm"
                 onClick={() => setFrameworkAfterGherkin(null)}
                 className="border-slate-600 text-slate-300 hover:bg-slate-700"
               >
                 Back to Framework Selection
               </Button>
             </div>
-
             <CodeOutput
               type={frameworkAfterGherkin}
               testData={testData}
@@ -268,6 +261,30 @@ const Index = () => {
               isGenerating={isGeneratingFramework}
               setIsGenerating={setIsGeneratingFramework}
               gherkinContext={gherkinResult}
+            />
+          </div>
+        )}
+
+        {/* Step 3c: BDD framework output */}
+        {frameworkAfterGherkin && automationMode === "bdd" && testData && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">3</div>
+                <h2 className="text-lg font-semibold text-white">BDD Architecture — {frameworkAfterGherkin.charAt(0).toUpperCase() + frameworkAfterGherkin.slice(1)}</h2>
+              </div>
+              <Button 
+                variant="outline" size="sm"
+                onClick={() => setFrameworkAfterGherkin(null)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                Back to Framework Selection
+              </Button>
+            </div>
+            <BddCodeOutput
+              framework={frameworkAfterGherkin}
+              testData={testData}
+              gherkinScenarios={gherkinResult}
             />
           </div>
         )}
