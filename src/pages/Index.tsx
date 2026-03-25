@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Code, Sparkles, Play, TestTube, Bot, Layers, Zap } from "lucide-react";
+import { FileText, Code, Sparkles, Play, TestTube, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Footer from "@/components/Footer";
 import CsvUploader, { TestCaseData } from "@/components/CsvUploader";
@@ -10,7 +10,6 @@ import WorkflowSteps from "@/components/WorkflowSteps";
 
 type OutputType = "gherkin" | "playwright" | "selenium" | "cypress" | "robot" | null;
 type FrameworkType = "playwright" | "selenium" | "cypress" | "robot";
-type AutomationMode = "classic" | "bdd" | null;
 
 const Index = () => {
   const [testData, setTestData] = useState<TestCaseData | null>(null);
@@ -18,11 +17,8 @@ const Index = () => {
   const [generatedCode, setGeneratedCode] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [gherkinResult, setGherkinResult] = useState("");
-  // Post-Gherkin state
-  const [automationMode, setAutomationMode] = useState<AutomationMode>(null);
+  // Post-Gherkin BDD state
   const [frameworkAfterGherkin, setFrameworkAfterGherkin] = useState<FrameworkType | null>(null);
-  const [frameworkCode, setFrameworkCode] = useState("");
-  const [isGeneratingFramework, setIsGeneratingFramework] = useState(false);
   const { toast } = useToast();
 
   const handleReset = () => {
@@ -30,22 +26,17 @@ const Index = () => {
     setOutputType(null);
     setGeneratedCode("");
     setGherkinResult("");
-    setAutomationMode(null);
     setFrameworkAfterGherkin(null);
-    setFrameworkCode("");
   };
 
   const handleSelectOutput = (type: OutputType) => {
     setGeneratedCode("");
     setGherkinResult("");
-    setAutomationMode(null);
     setFrameworkAfterGherkin(null);
-    setFrameworkCode("");
     setOutputType(type);
   };
 
   const handleSelectFrameworkAfterGherkin = (type: FrameworkType) => {
-    setFrameworkCode("");
     setFrameworkAfterGherkin(type);
   };
 
@@ -57,6 +48,7 @@ const Index = () => {
 
   const hasTestCases = testData && testData.testCases.length > 0;
   const gherkinGenerated = outputType === "gherkin" && gherkinResult.length > 0 && !isGenerating;
+  const isClassicFramework = outputType && outputType !== "gherkin";
 
   const frameworkButtons = (onClick: (fw: FrameworkType) => void) => (
     <div className="flex flex-wrap gap-3">
@@ -121,9 +113,9 @@ const Index = () => {
               <h2 className="text-lg font-semibold text-white">Select Output Type</h2>
             </div>
             
-            {/* Documentation */}
+            {/* BDD Flow: Gherkin first */}
             <div className="mb-4">
-              <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">Documentation / BDD</h3>
+              <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">BDD Automation (Gherkin → Step Definitions → Actions → Adapter)</h3>
               <div className="flex flex-wrap gap-3">
                 <Button 
                   onClick={() => handleSelectOutput("gherkin")}
@@ -136,9 +128,9 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Direct Automation Framework */}
+            {/* Classic: Direct framework */}
             <div>
-              <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">Automation Framework (Classic)</h3>
+              <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wide">Classic Automation (POM + Test + Data)</h3>
               {frameworkButtons((fw) => handleSelectOutput(fw))}
             </div>
           </div>
@@ -171,102 +163,27 @@ const Index = () => {
               }}
               isGenerating={isGenerating}
               setIsGenerating={setIsGenerating}
+              {...(isClassicFramework ? {} : {})}
             />
           </div>
         )}
 
-        {/* Step 3: After Gherkin → Choose Mode */}
-        {gherkinGenerated && !automationMode && (
+        {/* Step 3: After Gherkin → Select Framework for BDD Architecture (auto BDD mode) */}
+        {gherkinGenerated && !frameworkAfterGherkin && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">3</div>
-              <h2 className="text-lg font-semibold text-white">Select Automation Mode</h2>
+              <h2 className="text-lg font-semibold text-white">Select Framework for BDD Architecture</h2>
             </div>
             <p className="text-slate-400 text-sm mb-4">
-              Choose how to generate automation code from your Gherkin scenarios.
+              Generate Step Definitions → Actions → Adapter layered architecture from your Gherkin scenarios.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button
-                onClick={() => setAutomationMode("classic")}
-                className="p-5 rounded-lg border-2 border-slate-600 bg-slate-800/50 hover:border-blue-500 hover:bg-slate-800 transition-all text-left group"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <Zap className="h-6 w-6 text-blue-400" />
-                  <h3 className="text-white font-semibold text-base">Classic Automation</h3>
-                </div>
-                <p className="text-slate-400 text-sm">
-                  Generate Page Object Model (POM) with test file and data file. Direct test scripts integrated with Gherkin.
-                </p>
-              </button>
-              <button
-                onClick={() => setAutomationMode("bdd")}
-                className="p-5 rounded-lg border-2 border-slate-600 bg-slate-800/50 hover:border-indigo-500 hover:bg-slate-800 transition-all text-left group relative"
-              >
-                <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">NEW</span>
-                <div className="flex items-center gap-3 mb-2">
-                  <Layers className="h-6 w-6 text-indigo-400" />
-                  <h3 className="text-white font-semibold text-base">BDD Automation</h3>
-                </div>
-                <p className="text-slate-400 text-sm">
-                  Full BDD architecture: Step Definitions → Abstraction Layer → Framework Adapter. True framework-agnostic engine.
-                </p>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3b: Framework selection (both modes) */}
-        {gherkinGenerated && automationMode && !frameworkAfterGherkin && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">3</div>
-                <h2 className="text-lg font-semibold text-white">
-                  {automationMode === "bdd" ? "Select Framework for BDD Architecture" : "Select Framework (Classic + Gherkin)"}
-                </h2>
-              </div>
-              <Button 
-                variant="outline" size="sm"
-                onClick={() => setAutomationMode(null)}
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
-              >
-                Back to Mode Selection
-              </Button>
-            </div>
             {frameworkButtons(handleSelectFrameworkAfterGherkin)}
           </div>
         )}
 
-        {/* Step 3c: Classic framework output */}
-        {frameworkAfterGherkin && automationMode === "classic" && testData && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">3</div>
-                <h2 className="text-lg font-semibold text-white">Framework Code (Classic + Gherkin)</h2>
-              </div>
-              <Button 
-                variant="outline" size="sm"
-                onClick={() => setFrameworkAfterGherkin(null)}
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
-              >
-                Back to Framework Selection
-              </Button>
-            </div>
-            <CodeOutput
-              type={frameworkAfterGherkin}
-              testData={testData}
-              generatedCode={frameworkCode}
-              onCodeGenerated={setFrameworkCode}
-              isGenerating={isGeneratingFramework}
-              setIsGenerating={setIsGeneratingFramework}
-              gherkinContext={gherkinResult}
-            />
-          </div>
-        )}
-
-        {/* Step 3c: BDD framework output */}
-        {frameworkAfterGherkin && automationMode === "bdd" && testData && (
+        {/* Step 3b: BDD framework output */}
+        {frameworkAfterGherkin && testData && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">

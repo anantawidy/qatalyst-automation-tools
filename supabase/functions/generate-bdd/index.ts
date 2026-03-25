@@ -31,55 +31,63 @@ function sanitizePayload(body: any) {
 }
 
 function buildPrompt(framework: string, gherkin: string, testCases: any[], locators: any, testData: any, moduleName: string): string {
-  const frameworkDetails: Record<string, { lang: string; stepSyntax: string; adapterExample: string; stepDefExample: string }> = {
+  const lower = moduleName.toLowerCase();
+
+  const frameworkDetails: Record<string, { lang: string; importStyle: string; stepSyntax: string; adapterExample: string }> = {
     playwright: {
       lang: "TypeScript",
-      stepSyntax: `import { Given, When, Then } from '@cucumber/cucumber';
-import { actions } from '../core/actions/${moduleName.toLowerCase()}Actions';
+      importStyle: `import { Given, When, Then } from '@cucumber/cucumber';`,
+      stepSyntax: `Given('the user navigates to the login page', async function () {
+  await ${lower}Actions.navigateToLogin();
+});
 
-Given('the user navigates to login page', async function () {
-  await actions.navigateToLogin();
+When('the user logs in with username {string} and password {string}', async function (username: string, password: string) {
+  await ${lower}Actions.login(username, password);
 });`,
       adapterExample: `import { Page } from '@playwright/test';
 
 export class ${moduleName}Adapter {
   constructor(private page: Page) {}
-
   async navigateTo(url: string) { await this.page.goto(url); }
   async fill(selector: string, value: string) { await this.page.fill(selector, value); }
   async click(selector: string) { await this.page.click(selector); }
   async getText(selector: string) { return await this.page.textContent(selector); }
   async isVisible(selector: string) { return await this.page.isVisible(selector); }
 }`,
-      stepDefExample: `Given('...', async function() { await actions.methodName(); });`
     },
     selenium: {
       lang: "JavaScript",
-      stepSyntax: `const { Given, When, Then } = require('@cucumber/cucumber');
-const actions = require('../core/actions/${moduleName.toLowerCase()}Actions');
+      importStyle: `const { Given, When, Then } = require('@cucumber/cucumber');`,
+      stepSyntax: `Given('the user navigates to the login page', async function () {
+  await ${lower}Actions.navigateToLogin();
+});
 
-Given('the user navigates to login page', async function () {
-  await actions.navigateToLogin();
+When('the user logs in with username {string} and password {string}', async function (username, password) {
+  await ${lower}Actions.login(username, password);
 });`,
       adapterExample: `const { By, until } = require('selenium-webdriver');
 
 class ${moduleName}Adapter {
   constructor(driver) { this.driver = driver; }
-
   async navigateTo(url) { await this.driver.get(url); }
-  async fill(selector, value) { await this.driver.findElement(By.css(selector)).sendKeys(value); }
+  async fill(selector, value) {
+    const el = await this.driver.findElement(By.css(selector));
+    await el.clear();
+    await el.sendKeys(value);
+  }
   async click(selector) { await this.driver.findElement(By.css(selector)).click(); }
   async getText(selector) { return await this.driver.findElement(By.css(selector)).getText(); }
 }`,
-      stepDefExample: `Given('...', async function() { await actions.methodName(); });`
     },
     cypress: {
       lang: "JavaScript",
-      stepSyntax: `import { Given, When, Then } from '@badeball/cypress-cucumber-preprocessor';
-import actions from '../core/actions/${moduleName.toLowerCase()}Actions';
+      importStyle: `import { Given, When, Then } from '@badeball/cypress-cucumber-preprocessor';`,
+      stepSyntax: `Given('the user navigates to the login page', () => {
+  ${lower}Actions.navigateToLogin();
+});
 
-Given('the user navigates to login page', () => {
-  actions.navigateToLogin();
+When('the user logs in with username {string} and password {string}', (username, password) => {
+  ${lower}Actions.login(username, password);
 });`,
       adapterExample: `class ${moduleName}Adapter {
   navigateTo(url) { cy.visit(url); }
@@ -88,14 +96,17 @@ Given('the user navigates to login page', () => {
   getText(selector) { return cy.get(selector).invoke('text'); }
   isVisible(selector) { cy.get(selector).should('be.visible'); }
 }`,
-      stepDefExample: `Given('...', () => { actions.methodName(); });`
     },
     robot: {
       lang: "Robot Framework",
+      importStyle: `*** Settings ***\nLibrary    SeleniumLibrary`,
       stepSyntax: `*** Keywords ***
-# Step: Given the user navigates to login page
 Navigate To Login Page
-    actions.Navigate To Login`,
+    ${moduleName} Actions.Navigate To Login
+
+Login With Credentials
+    [Arguments]    \${username}    \${password}
+    ${moduleName} Actions.Login    \${username}    \${password}`,
       adapterExample: `*** Keywords ***
 Navigate To URL
     [Arguments]    \${url}
@@ -111,21 +122,20 @@ Click Element By Locator
     [Arguments]    \${locator}
     Wait Until Element Is Visible    \${locator}    10s
     Click Element    \${locator}`,
-      stepDefExample: `# Keyword maps to Gherkin step`
-    }
+    },
   };
 
   const fw = frameworkDetails[framework];
 
   return `
-You are a senior BDD automation architect building a TRUE framework-agnostic BDD automation engine.
+You are a senior BDD automation architect building a PRODUCTION-GRADE framework-agnostic BDD engine.
 
 ## INPUT
 
 **Gherkin Scenarios:**
 ${gherkin}
 
-**Test Cases (for context):**
+**Test Cases (context):**
 ${JSON.stringify(testCases, null, 2)}
 
 **Locators:**
@@ -137,60 +147,99 @@ ${JSON.stringify(testData, null, 2)}
 **Target Framework:** ${framework}
 **Module Name:** ${moduleName}
 
+## CRITICAL RULES — READ BEFORE GENERATING
+
+### RULE 1: STEP CONSOLIDATION (MANDATORY)
+Detect and MERGE semantically similar steps into ONE step definition using regex alternation.
+
+Example — these MUST become ONE step:
+- "the user clicks the login button"
+- "the user submits the login form"
+- "the user proceeds to login"
+
+→ Generate:
+When(/^the user (?:clicks the login button|submits the login form|proceeds to login)$/, async function () {
+  await ${lower}Actions.submitLogin();
+});
+
+### RULE 2: HIGH-LEVEL BUSINESS STEPS ONLY (MANDATORY)
+NEVER generate atomic steps like:
+- "the user enters username"
+- "the user enters password"
+- "the user clicks login"
+
+ALWAYS prefer ONE business-level step:
+When('the user logs in with username {string} and password {string}', async function (username, password) {
+  await ${lower}Actions.login(username, password);
+});
+
+### RULE 3: STRICT PARAMETERIZATION
+NEVER hardcode values in step text.
+❌ BAD: When('the user provides a valid username', ...)
+✅ GOOD: When('the user logs in with username {string} and password {string}', ...)
+✅ GOOD: Then('the user should see error message {string}', ...)
+
+### RULE 4: ZERO DUPLICATION
+- No duplicate step definitions (even with different wording)
+- No duplicate action methods (login, doLogin, performLogin → ONLY login())
+- Reuse steps across scenarios via parameterization
+
+### RULE 5: NAMING STANDARDIZATION
+Actions MUST use these naming patterns:
+✅ login(), navigateToLogin(), verifyLoginSuccess(), verifyErrorMessage()
+❌ doLogin(), performLogin(), loginUser(), checkLogin()
+
+### RULE 6: CLEAN SEPARATION
+- Step Definitions → call ONLY Actions (never locators or framework APIs)
+- Actions → call ONLY Adapter (never framework APIs directly)
+- Adapter → ONLY layer that knows about ${framework}
+- Data → separate file, never hardcoded
+
 ## ARCHITECTURE
 
-You must generate a layered BDD architecture with FOUR outputs:
-
 ### 1. STEP DEFINITIONS
-- Parse ALL Gherkin steps (Given/When/Then/And/But)
-- Deduplicate similar steps (e.g., "user enters username" and "user provides username" → ONE step)
-- Parameterize static values: "standard_user" → {string}
-- Each step calls the ABSTRACTION LAYER (actions), NOT framework code directly
 - Language: ${fw.lang}
-- Example syntax:
+- Import: ${fw.importStyle}
+- Parse ALL Gherkin steps, merge similar ones via regex
+- Each step calls Actions layer only
+- All dynamic values parameterized with {string}, {int}
+- Example:
 ${fw.stepSyntax}
 
-### 2. ABSTRACTION LAYER (Actions)
-- Framework-INDEPENDENT action functions
-- File: core/actions/${moduleName.toLowerCase()}Actions
-- High-level methods: login(), navigateToLogin(), verifyLoginSuccess(), verifyErrorMessage()
-- Smart mapping: detect patterns like (enter username + enter password + click login) → login()
-- Each action delegates to the ADAPTER (injected dependency)
-- MUST NOT import any framework-specific code
-- Include a setAdapter() or constructor to inject the framework adapter
+### 2. ACTIONS LAYER (Framework-Agnostic)
+- File: core/actions/${lower}Actions
+- High-level business methods:
+  - login(username, password) — combines fill username + fill password + click submit
+  - navigateToLogin()
+  - verifyLoginSuccess()
+  - verifyErrorMessage(expectedMessage)
+  - loginAs(role) — if role-based patterns detected
+- Auto-detect atomic action patterns and compose them:
+  enterUsername + enterPassword + submitLogin → login(username, password)
+- Include setAdapter() or constructor for dependency injection
+- MUST NOT import any framework code
 
 ### 3. FRAMEWORK ADAPTER
-- Implements the actual framework-specific commands
-- File: adapters/${framework}/${moduleName.toLowerCase()}Adapter
-- Translates generic actions (fill, click, navigate, getText, isVisible) into ${framework} commands
-- Uses the locators provided
+- File: adapters/${framework}/${lower}Adapter
+- Implements generic actions → ${framework} commands
+- Uses provided locators
 - Example:
 ${fw.adapterExample}
 
 ### 4. DATA FILE
-- Valid JSON with flat global structure
-- All test data extracted from the Gherkin scenarios and test cases
-- File: testData.json
-
-## RULES
-- NO hardcoded test data in step definitions or actions
-- NO duplicate step definitions
-- Step definitions call ONLY actions, never framework APIs directly
-- Actions call ONLY the adapter, never framework APIs directly
-- Adapter is the ONLY layer that knows about ${framework}
-- All parameterized values use {string}, {int}, etc.
-- Generated code must be production-ready
-- Maintain a clear dependency chain: Steps → Actions → Adapter → Framework
+- Valid JSON with flat structure
+- All test data extracted from Gherkin and test cases
+- Include valid/invalid credential sets, URLs, expected messages
 
 ## OUTPUT FORMAT
-Output exactly in this format with separators:
+Output exactly with these separators. No markdown fences. No extra text.
 
 ===STEP_DEFINITIONS_START===
 // Step definition code here
 ===STEP_DEFINITIONS_END===
 
 ===ACTIONS_START===
-// Abstraction layer / actions code here
+// Actions layer code here
 ===ACTIONS_END===
 
 ===ADAPTER_START===
@@ -200,8 +249,6 @@ Output exactly in this format with separators:
 ===DATA_FILE_START===
 // JSON data file here
 ===DATA_FILE_END===
-
-Do not include any other text, comments outside the blocks, or markdown code fences.
 `;
 }
 
@@ -245,7 +292,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
+        temperature: 0.15,
       }),
     });
 
