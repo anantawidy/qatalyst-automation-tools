@@ -33,44 +33,85 @@ function sanitizePayload(body: any) {
 function buildPrompt(framework: string, gherkin: string, testCases: any[], locators: any, testData: any, moduleName: string): string {
   const lower = moduleName.toLowerCase();
 
-  const adapterExamples: Record<string, string> = {
-    playwright: `import { Page } from '@playwright/test';
+  const frameworkDetails: Record<string, { lang: string; importStyle: string; stepSyntax: string; adapterExample: string }> = {
+    playwright: {
+      lang: "TypeScript",
+      importStyle: `import { Given, When, Then } from '@cucumber/cucumber';`,
+      stepSyntax: `Given('the user navigates to the login page', async function () {
+  await ${lower}Actions.navigateToLogin();
+});
 
-export class Adapter {
-  constructor(page) { this.page = page; }
-  async navigate(url) { await this.page.goto(url); }
-  async fill(selector, value) { await this.page.fill(selector, value); }
-  async click(selector) { await this.page.click(selector); }
-  async getText(selector) { return await this.page.textContent(selector); }
-  async isVisible(selector) { return await this.page.isVisible(selector); }
+When('the user logs in with username {string} and password {string}', async function (username: string, password: string) {
+  await ${lower}Actions.login(username, password);
+});`,
+      adapterExample: `import { Page } from '@playwright/test';
+
+export class ${moduleName}Adapter {
+  constructor(private page: Page) {}
+  async navigateTo(url: string) { await this.page.goto(url); }
+  async fill(selector: string, value: string) { await this.page.fill(selector, value); }
+  async click(selector: string) { await this.page.click(selector); }
+  async getText(selector: string) { return await this.page.textContent(selector); }
+  async isVisible(selector: string) { return await this.page.isVisible(selector); }
 }`,
-    selenium: `const { By, until } = require('selenium-webdriver');
+    },
+    selenium: {
+      lang: "JavaScript",
+      importStyle: `const { Given, When, Then } = require('@cucumber/cucumber');`,
+      stepSyntax: `Given('the user navigates to the login page', async function () {
+  await ${lower}Actions.navigateToLogin();
+});
 
-class Adapter {
+When('the user logs in with username {string} and password {string}', async function (username, password) {
+  await ${lower}Actions.login(username, password);
+});`,
+      adapterExample: `const { By, until } = require('selenium-webdriver');
+
+class ${moduleName}Adapter {
   constructor(driver) { this.driver = driver; }
-  async navigate(url) { await this.driver.get(url); }
+  async navigateTo(url) { await this.driver.get(url); }
   async fill(selector, value) {
     const el = await this.driver.findElement(By.css(selector));
-    await el.clear(); await el.sendKeys(value);
+    await el.clear();
+    await el.sendKeys(value);
   }
   async click(selector) { await this.driver.findElement(By.css(selector)).click(); }
   async getText(selector) { return await this.driver.findElement(By.css(selector)).getText(); }
-  async isVisible(selector) {
-    try { return await this.driver.findElement(By.css(selector)).isDisplayed(); }
-    catch { return false; }
-  }
 }`,
-    cypress: `class Adapter {
-  navigate(url) { cy.visit(url); }
+    },
+    cypress: {
+      lang: "JavaScript",
+      importStyle: `import { Given, When, Then } from '@badeball/cypress-cucumber-preprocessor';`,
+      stepSyntax: `Given('the user navigates to the login page', () => {
+  ${lower}Actions.navigateToLogin();
+});
+
+When('the user logs in with username {string} and password {string}', (username, password) => {
+  ${lower}Actions.login(username, password);
+});`,
+      adapterExample: `class ${moduleName}Adapter {
+  navigateTo(url) { cy.visit(url); }
   fill(selector, value) { cy.get(selector).clear().type(value); }
   click(selector) { cy.get(selector).click(); }
   getText(selector) { return cy.get(selector).invoke('text'); }
   isVisible(selector) { cy.get(selector).should('be.visible'); }
 }`,
-    robot: `*** Keywords ***
+    },
+    robot: {
+      lang: "Robot Framework",
+      importStyle: `*** Settings ***\nLibrary    SeleniumLibrary`,
+      stepSyntax: `*** Keywords ***
+Navigate To Login Page
+    ${moduleName} Actions.Navigate To Login
+
+Login With Credentials
+    [Arguments]    \${username}    \${password}
+    ${moduleName} Actions.Login    \${username}    \${password}`,
+      adapterExample: `*** Keywords ***
 Navigate To URL
     [Arguments]    \${url}
-    Go To    \${url}
+    Open Browser    \${url}    chrome
+    Maximize Browser Window
 
 Fill Field
     [Arguments]    \${locator}    \${value}
@@ -80,215 +121,14 @@ Fill Field
 Click Element By Locator
     [Arguments]    \${locator}
     Wait Until Element Is Visible    \${locator}    10s
-    Click Element    \${locator}
-
-Get Element Text
-    [Arguments]    \${locator}
-    Wait Until Element Is Visible    \${locator}    10s
-    \${text}=    Get Text    \${locator}
-    RETURN    \${text}`,
+    Click Element    \${locator}`,
+    },
   };
 
-  const isRobot = framework === "robot";
-
-  const stepDefExample = isRobot
-    ? `*** Keywords ***
-User Navigates To Login Page
-    ${moduleName} Page.Navigate
-
-User Logs In With Credentials
-    [Arguments]    \${username}    \${password}
-    ${moduleName} Page.Login    \${username}    \${password}
-
-User Should See Error Message
-    [Arguments]    \${message}
-    ${moduleName} Page.Verify Error Message    \${message}`
-    : `const { Given, When, Then } = require('@cucumber/cucumber');
-
-Given('the user is on the login page', async function () {
-  await this.${lower}Page.navigate();
-});
-
-When('the user logs in with username {string} and password {string}', async function (username, password) {
-  await this.${lower}Page.login(username, password);
-});
-
-Then('the user should see error message {string}', async function (message) {
-  await this.${lower}Page.verifyErrorMessage(message);
-});`;
-
-  const pageObjectExample = isRobot
-    ? `*** Settings ***
-Library    Collections
-Resource   ../services/adapter.robot
-
-*** Variables ***
-\${USERNAME_SELECTOR}    id=user-name
-\${PASSWORD_SELECTOR}    id=password
-\${LOGIN_BTN_SELECTOR}   id=login-button
-\${ERROR_SELECTOR}       css=.error-message-container.error
-
-*** Keywords ***
-Navigate
-    Navigate To URL    /login
-
-Login
-    [Arguments]    \${username}    \${password}
-    Fill Field    \${USERNAME_SELECTOR}    \${username}
-    Fill Field    \${PASSWORD_SELECTOR}    \${password}
-    Click Element By Locator    \${LOGIN_BTN_SELECTOR}
-
-Verify Error Message
-    [Arguments]    \${expected}
-    \${text}=    Get Element Text    \${ERROR_SELECTOR}
-    Should Contain    \${text}    \${expected}`
-    : `class ${moduleName}Page {
-  constructor(adapter) {
-    this.adapter = adapter;
-    this.selectors = {
-      username: '#user-name',
-      password: '#password',
-      loginBtn: '#login-button',
-      error: '.error-message-container.error'
-    };
-  }
-
-  async navigate() {
-    await this.adapter.navigate('/login');
-  }
-
-  async login(username, password) {
-    await this.adapter.fill(this.selectors.username, username);
-    await this.adapter.fill(this.selectors.password, password);
-    await this.adapter.click(this.selectors.loginBtn);
-  }
-
-  async verifyLoginSuccess() {
-    const visible = await this.adapter.isVisible('.inventory_list');
-    if (!visible) throw new Error('Login failed');
-  }
-
-  async verifyErrorMessage(message) {
-    const text = await this.adapter.getText(this.selectors.error);
-    if (!text.includes(message)) throw new Error(\`Expected "\${message}" but got "\${text}"\`);
-  }
-}
-
-module.exports = ${moduleName}Page;`;
-
-  const worldExample = isRobot
-    ? `*** Settings ***
-Library    SeleniumLibrary
-Resource   pages/${lower}.page.robot
-Resource   services/adapter.robot
-
-*** Variables ***
-\${BROWSER}    chrome
-\${BASE_URL}   http://localhost:3000
-
-*** Keywords ***
-Initialize World
-    Open Browser    \${BASE_URL}    \${BROWSER}
-    Maximize Browser Window`
-    : `const { setWorldConstructor } = require('@cucumber/cucumber');
-const Adapter = require('./services/adapter');
-const ${moduleName}Page = require('./pages/${lower}.page');
-
-class CustomWorld {
-  constructor() {
-    this.adapter = new Adapter(/* driver/page instance */);
-    this.${lower}Page = new ${moduleName}Page(this.adapter);
-  }
-}
-
-setWorldConstructor(CustomWorld);`;
-
-  const hooksExample = isRobot
-    ? `*** Settings ***
-Resource    world.robot
-
-*** Keywords ***
-Suite Setup Hook
-    Initialize World
-
-Suite Teardown Hook
-    Close All Browsers
-
-Test Setup Hook
-    Delete All Cookies
-
-Test Teardown Hook
-    Capture Page Screenshot`
-    : `const { Before, After, BeforeAll, AfterAll } = require('@cucumber/cucumber');
-
-Before(async function () {
-  // Initialize browser & adapter before each scenario
-  // this.adapter.init();
-});
-
-After(async function (scenario) {
-  if (scenario.result.status === 'FAILED') {
-    // Take screenshot on failure
-  }
-  // Cleanup after each scenario
-});
-
-BeforeAll(async function () {
-  // Global setup
-});
-
-AfterAll(async function () {
-  // Global teardown
-});`;
-
-  const configExample = isRobot
-    ? `*** Variables ***
-\${DEFAULT_TIMEOUT}    10s
-\${IMPLICIT_WAIT}     5s
-\${BASE_URL}          http://localhost:3000
-\${BROWSER}           chrome
-\${HEADLESS}          false`
-    : `module.exports = {
-  defaultTimeout: 10000,
-  baseUrl: process.env.BASE_URL || 'http://localhost:3000',
-  browser: process.env.BROWSER || 'chrome',
-  headless: process.env.HEADLESS === 'true',
-};`;
-
-  const envExample = isRobot
-    ? `*** Variables ***
-# Environment: dev | staging | prod
-\${ENV}               dev
-
-# Environment-specific URLs
-\${DEV_URL}           http://localhost:3000
-\${STAGING_URL}       https://staging.example.com
-\${PROD_URL}          https://www.example.com
-
-*** Keywords ***
-Get Base URL
-    IF    '\${ENV}' == 'dev'
-        RETURN    \${DEV_URL}
-    ELSE IF    '\${ENV}' == 'staging'
-        RETURN    \${STAGING_URL}
-    ELSE
-        RETURN    \${PROD_URL}
-    END`
-    : `const environments = {
-  dev: { baseUrl: 'http://localhost:3000' },
-  staging: { baseUrl: 'https://staging.example.com' },
-  prod: { baseUrl: 'https://www.example.com' },
-};
-
-const currentEnv = process.env.TEST_ENV || 'dev';
-
-module.exports = {
-  current: currentEnv,
-  ...environments[currentEnv],
-};`;
+  const fw = frameworkDetails[framework];
 
   return `
-You are a senior BDD automation architect generating a PRODUCTION-GRADE Cucumber project structure.
+You are a senior BDD automation architect building a PRODUCTION-GRADE framework-agnostic BDD engine.
 
 ## INPUT
 
@@ -307,107 +147,107 @@ ${JSON.stringify(testData, null, 2)}
 **Target Framework:** ${framework}
 **Module Name:** ${moduleName}
 
-## PROJECT STRUCTURE TO GENERATE
-
-features/
-  ui/*.feature (already provided as input)
-  step_definitions/ui.steps.${isRobot ? 'robot' : 'js'}
-support/
-  pages/${lower}.page.${isRobot ? 'robot' : 'js'}
-  services/adapter.${isRobot ? 'robot' : 'js'}
-  world.${isRobot ? 'robot' : 'js'}
-  hooks.${isRobot ? 'robot' : 'js'}
-  config.${isRobot ? 'robot' : 'js'}
-  env.${isRobot ? 'robot' : 'js'}
-data/testData.json
-
-## CRITICAL RULES
+## CRITICAL RULES — READ BEFORE GENERATING
 
 ### RULE 1: STEP CONSOLIDATION (MANDATORY)
-Merge semantically similar steps into ONE definition using regex alternation.
-"clicks login" + "submits form" + "proceeds to login" → ONE step with regex.
+Detect and MERGE semantically similar steps into ONE step definition using regex alternation.
 
-### RULE 2: HIGH-LEVEL BUSINESS STEPS ONLY
-NEVER generate atomic steps (enter username, enter password, click login separately).
-ALWAYS prefer ONE business-level step: login(username, password).
+Example — these MUST become ONE step:
+- "the user clicks the login button"
+- "the user submits the login form"
+- "the user proceeds to login"
+
+→ Generate:
+When(/^the user (?:clicks the login button|submits the login form|proceeds to login)$/, async function () {
+  await ${lower}Actions.submitLogin();
+});
+
+### RULE 2: HIGH-LEVEL BUSINESS STEPS ONLY (MANDATORY)
+NEVER generate atomic steps like:
+- "the user enters username"
+- "the user enters password"
+- "the user clicks login"
+
+ALWAYS prefer ONE business-level step:
+When('the user logs in with username {string} and password {string}', async function (username, password) {
+  await ${lower}Actions.login(username, password);
+});
 
 ### RULE 3: STRICT PARAMETERIZATION
-NEVER hardcode values. Use {string}, {int} parameters.
+NEVER hardcode values in step text.
+❌ BAD: When('the user provides a valid username', ...)
+✅ GOOD: When('the user logs in with username {string} and password {string}', ...)
+✅ GOOD: Then('the user should see error message {string}', ...)
 
 ### RULE 4: ZERO DUPLICATION
-No duplicate step definitions. No duplicate page object methods.
+- No duplicate step definitions (even with different wording)
+- No duplicate action methods (login, doLogin, performLogin → ONLY login())
+- Reuse steps across scenarios via parameterization
 
-### RULE 5: CLEAN SEPARATION
-- Step Definitions → call ONLY Page Object methods via this.${lower}Page
-- Page Object → call ONLY Adapter methods via this.adapter
+### RULE 5: NAMING STANDARDIZATION
+Actions MUST use these naming patterns:
+✅ login(), navigateToLogin(), verifyLoginSuccess(), verifyErrorMessage()
+❌ doLogin(), performLogin(), loginUser(), checkLogin()
+
+### RULE 6: CLEAN SEPARATION
+- Step Definitions → call ONLY Actions (never locators or framework APIs)
+- Actions → call ONLY Adapter (never framework APIs directly)
 - Adapter → ONLY layer that knows about ${framework}
+- Data → separate file, never hardcoded
 
-### RULE 6: NAMING
-Page Object methods: navigate(), login(), verifyLoginSuccess(), verifyErrorMessage()
-NO: doLogin(), performLogin(), loginUser()
+## ARCHITECTURE
 
-## LAYER DESCRIPTIONS
+### 1. STEP DEFINITIONS
+- Language: ${fw.lang}
+- Import: ${fw.importStyle}
+- Parse ALL Gherkin steps, merge similar ones via regex
+- Each step calls Actions layer only
+- All dynamic values parameterized with {string}, {int}
+- Example:
+${fw.stepSyntax}
 
-### 1. STEP DEFINITIONS (features/step_definitions/ui.steps)
-${stepDefExample}
+### 2. ACTIONS LAYER (Framework-Agnostic)
+- File: core/actions/${lower}Actions
+- High-level business methods:
+  - login(username, password) — combines fill username + fill password + click submit
+  - navigateToLogin()
+  - verifyLoginSuccess()
+  - verifyErrorMessage(expectedMessage)
+  - loginAs(role) — if role-based patterns detected
+- Auto-detect atomic action patterns and compose them:
+  enterUsername + enterPassword + submitLogin → login(username, password)
+- Include setAdapter() or constructor for dependency injection
+- MUST NOT import any framework code
 
-### 2. PAGE OBJECT (support/pages/${lower}.page)
-Contains business logic + selectors. Calls adapter only.
-${pageObjectExample}
+### 3. FRAMEWORK ADAPTER
+- File: adapters/${framework}/${lower}Adapter
+- Implements generic actions → ${framework} commands
+- Uses provided locators
+- Example:
+${fw.adapterExample}
 
-### 3. ADAPTER (support/services/adapter)
-Single swappable interface for ${framework}.
-${adapterExamples[framework]}
-
-### 4. WORLD (support/world)
-Initializes adapter and page objects. Dependency injection.
-${worldExample}
-
-### 5. HOOKS (support/hooks)
-Before/After scenario lifecycle management.
-${hooksExample}
-
-### 6. CONFIG (support/config)
-Default settings: timeout, baseUrl, browser, headless.
-${configExample}
-
-### 7. ENV (support/env)
-Environment switching: dev, staging, prod.
-${envExample}
+### 4. DATA FILE
+- Valid JSON with flat structure
+- All test data extracted from Gherkin and test cases
+- Include valid/invalid credential sets, URLs, expected messages
 
 ## OUTPUT FORMAT
 Output exactly with these separators. No markdown fences. No extra text.
 
 ===STEP_DEFINITIONS_START===
-// Step definitions code
+// Step definition code here
 ===STEP_DEFINITIONS_END===
 
-===PAGE_OBJECT_START===
-// Page object code
-===PAGE_OBJECT_END===
+===ACTIONS_START===
+// Actions layer code here
+===ACTIONS_END===
 
 ===ADAPTER_START===
-// Adapter code
+// Framework adapter code here
 ===ADAPTER_END===
 
-===WORLD_START===
-// World code
-===WORLD_END===
-
-===HOOKS_START===
-// Hooks code
-===HOOKS_END===
-
-===CONFIG_START===
-// Config code
-===CONFIG_END===
-
-===ENV_START===
-// Env code
-===ENV_END===
-
 ===DATA_FILE_START===
-// JSON test data
+// JSON data file here
 ===DATA_FILE_END===
 `;
 }
@@ -450,7 +290,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.15,
       }),
@@ -487,21 +327,17 @@ serve(async (req) => {
       );
     }
 
-    const extract = (tag: string) => {
-      const match = content.match(new RegExp(`===${tag}_START===([\\s\\S]*?)===${tag}_END===`));
-      return match?.[1]?.trim() || '';
-    };
+    const stepDefsMatch = content.match(/===STEP_DEFINITIONS_START===([\s\S]*?)===STEP_DEFINITIONS_END===/);
+    const actionsMatch = content.match(/===ACTIONS_START===([\s\S]*?)===ACTIONS_END===/);
+    const adapterMatch = content.match(/===ADAPTER_START===([\s\S]*?)===ADAPTER_END===/);
+    const dataMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     return new Response(
       JSON.stringify({
-        stepDefinitions: extract('STEP_DEFINITIONS'),
-        pageObject: extract('PAGE_OBJECT'),
-        adapter: extract('ADAPTER'),
-        world: extract('WORLD'),
-        hooks: extract('HOOKS'),
-        config: extract('CONFIG'),
-        env: extract('ENV'),
-        dataFile: extract('DATA_FILE'),
+        stepDefinitions: stepDefsMatch?.[1]?.trim() || '',
+        actions: actionsMatch?.[1]?.trim() || '',
+        adapter: adapterMatch?.[1]?.trim() || '',
+        dataFile: dataMatch?.[1]?.trim() || '',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
