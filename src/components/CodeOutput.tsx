@@ -12,6 +12,7 @@ import { TestCaseData } from "./CsvUploader";
 type OutputType = "gherkin" | "playwright" | "selenium" | "cypress" | "robot";
 
 interface GeneratedCode {
+  featureFile: string;
   pageObject: string;
   testFile: string;
   dataFile: string;
@@ -36,9 +37,10 @@ const CodeOutput = ({
   setIsGenerating,
   gherkinContext
 }: CodeOutputProps) => {
-  const [pomCode, setPomCode] = useState<GeneratedCode>({ pageObject: '', testFile: '', dataFile: '' });
+  const [pomCode, setPomCode] = useState<GeneratedCode>({ featureFile: '', pageObject: '', testFile: '', dataFile: '' });
   const [gherkinCode, setGherkinCode] = useState(generatedCode);
-  const [activeTab, setActiveTab] = useState<"pageObject" | "testFile" | "dataFile">("pageObject");
+  const [activeTab, setActiveTab] = useState<"featureFile" | "pageObject" | "testFile" | "dataFile">("featureFile");
+  const [copiedFeature, setCopiedFeature] = useState(false);
   const [copiedPO, setCopiedPO] = useState(false);
   const [copiedTest, setCopiedTest] = useState(false);
   const [copiedData, setCopiedData] = useState(false);
@@ -142,12 +144,14 @@ const CodeOutput = ({
           description: `${testData.testCases.length} test cases converted to Gherkin.`,
         });
       } else {
+        const featureFile = cleanCode(data.featureFile || '');
         const pageObject = cleanCode(data.pageObject || '');
         const testFile = cleanCode(data.testFile || '');
         const dataFile = cleanCode(data.dataFile || '');
 
-        setPomCode({ pageObject, testFile, dataFile });
-        onCodeGenerated(JSON.stringify({ pageObject, testFile, dataFile }));
+        setPomCode({ featureFile, pageObject, testFile, dataFile });
+        setActiveTab(featureFile ? "featureFile" : "pageObject");
+        onCodeGenerated(JSON.stringify({ featureFile, pageObject, testFile, dataFile }));
       
         toast({
           title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
@@ -163,7 +167,7 @@ const CodeOutput = ({
     }
   };
 
-  const copyToClipboard = (code: string, which: "po" | "test" | "data" | "gherkin") => {
+  const copyToClipboard = (code: string, which: "po" | "test" | "data" | "gherkin" | "feature") => {
     navigator.clipboard.writeText(code);
     if (which === "po") {
       setCopiedPO(true);
@@ -174,6 +178,9 @@ const CodeOutput = ({
     } else if (which === "data") {
       setCopiedData(true);
       setTimeout(() => setCopiedData(false), 2000);
+    } else if (which === "feature") {
+      setCopiedFeature(true);
+      setTimeout(() => setCopiedFeature(false), 2000);
     }
     toast({
       title: "Copied!",
@@ -226,15 +233,18 @@ const CodeOutput = ({
     const lower = moduleName.toLowerCase();
     switch (type) {
       case "playwright":
-        return { pageObject: `${moduleName}Page.ts`, testFile: `${lower}.spec.ts`, dataFile: "testData.json" };
       case "selenium":
-        return { pageObject: `${moduleName}Page.js`, testFile: `${lower}.test.js`, dataFile: "testData.json" };
       case "cypress":
-        return { pageObject: "commands.js", testFile: `${lower}.cy.js`, dataFile: "testData.json" };
+        return {
+          featureFile: `${lower}.feature`,
+          pageObject: `${lower}.page.js`,
+          testFile: `${lower}.steps.js`,
+          dataFile: "testData.json",
+        };
       case "robot":
-        return { pageObject: "keywords.robot", testFile: "tests.robot", dataFile: "testdata.py" };
+        return { featureFile: "", pageObject: "keywords.robot", testFile: "tests.robot", dataFile: "testdata.py" };
       default:
-        return { pageObject: `${moduleName}Page.js`, testFile: `${lower}.test.js`, dataFile: "testData.json" };
+        return { featureFile: "", pageObject: `${lower}.page.js`, testFile: `${lower}.steps.js`, dataFile: "testData.json" };
     }
   };
 
