@@ -57,11 +57,14 @@ serve(async (req) => {
     const { testCases, locators, testData } = sanitizePayload(body);
     const moduleName = String(body.moduleName || "Login").slice(0, 50);
     const gherkinScenarios = body.gherkinScenarios ? String(body.gherkinScenarios).slice(0, 10000) : "";
-    const testFileName = `${moduleName.toLowerCase()}.cy.js`;
+    const lower = moduleName.toLowerCase();
+    const featureFile = `${lower}.feature`;
+    const stepsFile = `${lower}.steps.js`;
+    const pageFile = `${lower}.page.js`;
+    const pageClass = `${moduleName}Page`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
       return new Response(
         JSON.stringify({ error: "Service configuration error. Please try again later." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -69,9 +72,7 @@ serve(async (req) => {
     }
 
     const prompt = `
-You are a senior QA automation engineer expert in Cypress.
-
-Given this test data:
+You are a senior QA automation engineer expert in Cypress + Cucumber BDD via cypress-cucumber-preprocessor (JavaScript only, NO TypeScript).
 
 Test Cases:
 ${JSON.stringify(testCases, null, 2)}
@@ -82,56 +83,49 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate Cypress test code with THREE separate outputs:
+Generate a Cucumber BDD project for Cypress with FOUR outputs.
 
-**REQUIREMENTS:**
-1. Use Cypress with Mocha structure (describe, it)
-2. Implement reusable actions as Cypress Custom Commands in commands.js
-3. Page-specific locators should live in a dedicated Page Object file (not inside tests)
-4. Tests should be clean and high-level, calling custom commands rather than repeating UI steps
-5. Avoid hardcoded waits; use Cypress assertions and automatic retries
-6. DO NOT hardcode locators or test data inside test files
+**STRICT RULES:**
+- Pure JavaScript (NO TypeScript)
+- Use require() / module.exports
+- Each test case = one Gherkin Scenario tagged @TC_xxx
+- Reuse identical Gherkin steps across scenarios
+- Step definitions instantiate the Page Object as a singleton (const ${lower}Page = new ${pageClass}();)
+- NO hardcoded test data in steps/page (load from testData.json)
+- NO hardcoded locators in step definitions
 
-**PAGE OBJECT FILE (commands.js):**
-- Custom commands for reusable actions (Cypress.Commands.add())
-- All locators defined as constants at the top
-- Chain commands properly
+**1) FEATURE FILE (${featureFile})** — standard Gherkin with @TC tag.
 
-**TEST FILE (${testFileName}):**
-- Use describe() and it() blocks
-- before() hook for one-time setup (visit page)
-- Call custom commands instead of direct cy.get() where possible
-- Use proper Cypress assertions (.should())
-- NO hardcoded test data - load from fixture
+**2) STEP DEFINITIONS (${stepsFile})**
+- const { Given, When, Then } = require('@badeball/cypress-cucumber-preprocessor');
+- const { ${pageClass} } = require('../pages/${pageFile}');
+- const data = require('../../fixtures/testData.json');
+- Each step body delegates to the Page Object
 
-**DATA FILE (testData.json):**
-- Valid JSON with flat global structure (not nested per-scenario)
-- Store all test data
+**3) PAGE OBJECT (${pageFile})**
+- class ${pageClass} { constructor() { this.usernameInput = '#username'; ... } }
+- Locators as string constants
+- Reusable methods using cy.get/cy.visit/etc.
+- Assertions via cy.*.should() inside Page Object methods
+- module.exports = { ${pageClass} };
 
-**OUTPUT FORMAT:**
-Output exactly in this format with the separators:
+**4) DATA FILE (testData.json)** — flat JSON used as a Cypress fixture.
+
+**OUTPUT FORMAT — exact separators, no markdown fences, no extra text:**
+
+===FEATURE_FILE_START===
+===FEATURE_FILE_END===
+
+===STEPS_FILE_START===
+===STEPS_FILE_END===
 
 ===PAGE_OBJECT_START===
-// Custom Commands file content here
 ===PAGE_OBJECT_END===
 
-===TEST_FILE_START===
-// Test spec file content here
-===TEST_FILE_END===
-
 ===DATA_FILE_START===
-// JSON data file content here
 ===DATA_FILE_END===
 
-Do not include any other text, comments, or markdown code blocks.
-${gherkinScenarios ? `
-
-**GHERKIN INTEGRATION:**
-The following Gherkin scenarios have already been generated for these test cases. Your Custom Commands and test structure MUST align with these Gherkin steps so the code can serve as step definition implementations for BDD frameworks (e.g., cypress-cucumber-preprocessor). Each Given/When/Then step should map to a Custom Command.
-
-Gherkin Scenarios:
-${gherkinScenarios}
-` : ''}
+${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT:**\n${gherkinScenarios}\n` : ''}
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -150,53 +144,42 @@ ${gherkinScenarios}
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "AI Generation limit reached. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "AI Generation limit reached. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      return new Response(
-        JSON.stringify({ error: "Failed to generate code. Please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Failed to generate code. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
-
     if (!content) {
-      console.error("No content received from AI");
-      return new Response(
-        JSON.stringify({ error: "Failed to generate code. Please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Failed to generate code. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const featureMatch = content.match(/===FEATURE_FILE_START===([\s\S]*?)===FEATURE_FILE_END===/);
+    const stepsMatch = content.match(/===STEPS_FILE_START===([\s\S]*?)===STEPS_FILE_END===/);
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
-    const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
     const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     return new Response(
       JSON.stringify({
+        featureFile: featureMatch?.[1]?.trim() || '',
+        testFile: stepsMatch?.[1]?.trim() || '',
         pageObject: pageObjectMatch?.[1]?.trim() || '',
-        testFile: testFileMatch?.[1]?.trim() || '',
         dataFile: dataFileMatch?.[1]?.trim() || '',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("generate-cypress error:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to generate code. Please try again." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Failed to generate code. Please try again." }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
