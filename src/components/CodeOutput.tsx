@@ -12,6 +12,7 @@ import { TestCaseData } from "./CsvUploader";
 type OutputType = "gherkin" | "playwright" | "selenium" | "cypress" | "robot";
 
 interface GeneratedCode {
+  featureFile: string;
   pageObject: string;
   testFile: string;
   dataFile: string;
@@ -36,9 +37,10 @@ const CodeOutput = ({
   setIsGenerating,
   gherkinContext
 }: CodeOutputProps) => {
-  const [pomCode, setPomCode] = useState<GeneratedCode>({ pageObject: '', testFile: '', dataFile: '' });
+  const [pomCode, setPomCode] = useState<GeneratedCode>({ featureFile: '', pageObject: '', testFile: '', dataFile: '' });
   const [gherkinCode, setGherkinCode] = useState(generatedCode);
-  const [activeTab, setActiveTab] = useState<"pageObject" | "testFile" | "dataFile">("pageObject");
+  const [activeTab, setActiveTab] = useState<"featureFile" | "pageObject" | "testFile" | "dataFile">("featureFile");
+  const [copiedFeature, setCopiedFeature] = useState(false);
   const [copiedPO, setCopiedPO] = useState(false);
   const [copiedTest, setCopiedTest] = useState(false);
   const [copiedData, setCopiedData] = useState(false);
@@ -142,12 +144,14 @@ const CodeOutput = ({
           description: `${testData.testCases.length} test cases converted to Gherkin.`,
         });
       } else {
+        const featureFile = cleanCode(data.featureFile || '');
         const pageObject = cleanCode(data.pageObject || '');
         const testFile = cleanCode(data.testFile || '');
         const dataFile = cleanCode(data.dataFile || '');
 
-        setPomCode({ pageObject, testFile, dataFile });
-        onCodeGenerated(JSON.stringify({ pageObject, testFile, dataFile }));
+        setPomCode({ featureFile, pageObject, testFile, dataFile });
+        setActiveTab(featureFile ? "featureFile" : "pageObject");
+        onCodeGenerated(JSON.stringify({ featureFile, pageObject, testFile, dataFile }));
       
         toast({
           title: `${type.charAt(0).toUpperCase() + type.slice(1)} Generated`,
@@ -163,7 +167,7 @@ const CodeOutput = ({
     }
   };
 
-  const copyToClipboard = (code: string, which: "po" | "test" | "data" | "gherkin") => {
+  const copyToClipboard = (code: string, which: "po" | "test" | "data" | "gherkin" | "feature") => {
     navigator.clipboard.writeText(code);
     if (which === "po") {
       setCopiedPO(true);
@@ -174,6 +178,9 @@ const CodeOutput = ({
     } else if (which === "data") {
       setCopiedData(true);
       setTimeout(() => setCopiedData(false), 2000);
+    } else if (which === "feature") {
+      setCopiedFeature(true);
+      setTimeout(() => setCopiedFeature(false), 2000);
     }
     toast({
       title: "Copied!",
@@ -226,15 +233,18 @@ const CodeOutput = ({
     const lower = moduleName.toLowerCase();
     switch (type) {
       case "playwright":
-        return { pageObject: `${moduleName}Page.ts`, testFile: `${lower}.spec.ts`, dataFile: "testData.json" };
       case "selenium":
-        return { pageObject: `${moduleName}Page.js`, testFile: `${lower}.test.js`, dataFile: "testData.json" };
       case "cypress":
-        return { pageObject: "commands.js", testFile: `${lower}.cy.js`, dataFile: "testData.json" };
+        return {
+          featureFile: `${lower}.feature`,
+          pageObject: `${lower}.page.js`,
+          testFile: `${lower}.steps.js`,
+          dataFile: "testData.json",
+        };
       case "robot":
-        return { pageObject: "keywords.robot", testFile: "tests.robot", dataFile: "testdata.py" };
+        return { featureFile: "", pageObject: "keywords.robot", testFile: "tests.robot", dataFile: "testdata.py" };
       default:
-        return { pageObject: `${moduleName}Page.js`, testFile: `${lower}.test.js`, dataFile: "testData.json" };
+        return { featureFile: "", pageObject: `${lower}.page.js`, testFile: `${lower}.steps.js`, dataFile: "testData.json" };
     }
   };
 
@@ -243,11 +253,11 @@ const CodeOutput = ({
       case "gherkin":
         return { icon: <FileText className="h-5 w-5 text-purple-400" />, title: "Gherkin Scenarios", color: "text-purple-300" };
       case "playwright":
-        return { icon: <Code className="h-5 w-5 text-green-400" />, title: "Playwright (POM)", color: "text-green-300" };
+        return { icon: <Code className="h-5 w-5 text-green-400" />, title: "Playwright (Cucumber BDD, JS)", color: "text-green-300" };
       case "selenium":
-        return { icon: <Code className="h-5 w-5 text-orange-400" />, title: "Selenium (POM + Mocha)", color: "text-orange-300" };
+        return { icon: <Code className="h-5 w-5 text-orange-400" />, title: "Selenium (Cucumber BDD, JS)", color: "text-orange-300" };
       case "cypress":
-        return { icon: <Code className="h-5 w-5 text-cyan-400" />, title: "Cypress (Mocha + Commands)", color: "text-cyan-300" };
+        return { icon: <Code className="h-5 w-5 text-cyan-400" />, title: "Cypress (Cucumber BDD, JS)", color: "text-cyan-300" };
       case "robot":
         return { icon: <Code className="h-5 w-5 text-rose-400" />, title: "Robot Framework", color: "text-rose-300" };
     }
@@ -370,20 +380,58 @@ const CodeOutput = ({
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-          <TabsList className="grid w-full grid-cols-3 bg-slate-700 mb-4">
+          <TabsList className={`grid w-full ${type === "robot" ? "grid-cols-3" : "grid-cols-4"} bg-slate-700 mb-4`}>
+            {type !== "robot" && (
+              <TabsTrigger value="featureFile" className="data-[state=active]:bg-blue-600">
+                <FileText className="h-4 w-4 mr-2" />
+                Feature
+              </TabsTrigger>
+            )}
             <TabsTrigger value="pageObject" className="data-[state=active]:bg-blue-600">
               <FileCode className="h-4 w-4 mr-2" />
-              {type === "cypress" ? "Commands" : type === "robot" ? "Keywords" : "Page Object"}
+              {type === "robot" ? "Keywords" : "Page Object"}
             </TabsTrigger>
             <TabsTrigger value="testFile" className="data-[state=active]:bg-blue-600">
               <Code className="h-4 w-4 mr-2" />
-              Test File
+              {type === "robot" ? "Test File" : "Step Defs"}
             </TabsTrigger>
             <TabsTrigger value="dataFile" className="data-[state=active]:bg-blue-600">
               <Database className="h-4 w-4 mr-2" />
               Data File
             </TabsTrigger>
           </TabsList>
+
+          {type !== "robot" && (
+            <TabsContent value="featureFile" className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400 font-mono">features/{fileNames.featureFile}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(pomCode.featureFile, "feature")}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    {copiedFeature ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadCode(pomCode.featureFile, fileNames.featureFile)}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                value={pomCode.featureFile}
+                onChange={(e) => setPomCode(prev => ({ ...prev, featureFile: e.target.value }))}
+                className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none text-purple-300`}
+                placeholder="Gherkin .feature content will appear here..."
+              />
+            </TabsContent>
+          )}
 
           <TabsContent value="pageObject" className="space-y-3">
             <div className="flex items-center justify-between">

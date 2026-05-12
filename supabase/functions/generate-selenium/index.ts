@@ -57,12 +57,14 @@ serve(async (req) => {
     const { testCases, locators, testData } = sanitizePayload(body);
     const moduleName = String(body.moduleName || "Login").slice(0, 50);
     const gherkinScenarios = body.gherkinScenarios ? String(body.gherkinScenarios).slice(0, 10000) : "";
-    const pageObjectFileName = `${moduleName}Page`;
-    const testFileName = `${moduleName.toLowerCase()}.test.js`;
+    const lower = moduleName.toLowerCase();
+    const featureFile = `${lower}.feature`;
+    const stepsFile = `${lower}.steps.js`;
+    const pageFile = `${lower}.page.js`;
+    const pageClass = `${moduleName}Page`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
       return new Response(
         JSON.stringify({ error: "Service configuration error. Please try again later." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -70,9 +72,7 @@ serve(async (req) => {
     }
 
     const prompt = `
-You are a senior QA automation engineer expert in Selenium WebDriver.
-
-Given this test data:
+You are a senior QA automation engineer expert in Selenium WebDriver + Cucumber BDD (JavaScript only, NO TypeScript).
 
 Test Cases:
 ${JSON.stringify(testCases, null, 2)}
@@ -83,69 +83,51 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate Selenium WebDriver test code with THREE separate outputs:
+Generate a Cucumber BDD project for Selenium with FOUR outputs.
 
-**IMPORTANT FILE NAMING:**
-- The Page Object class MUST be named "${pageObjectFileName}" and exported as such
-- The Test File MUST import the page object using: const { ${pageObjectFileName} } = require('./${pageObjectFileName}');
-- File names: Page Object = "${pageObjectFileName}.js", Test File = "${testFileName}"
+**STRICT RULES:**
+- Pure JavaScript only (NO TypeScript)
+- require() / module.exports only
+- Each test case = one Gherkin Scenario tagged @TC_xxx
+- Reuse identical Gherkin steps across scenarios
+- Step definitions use this.driver and this.${lower}Page from the Cucumber World
+- NO hardcoded test data inside steps/page (load from testData.json)
+- NO hardcoded locators inside step definitions
 
-**REQUIREMENTS:**
-1. Use Selenium WebDriver with JavaScript
-2. Must use Mocha as test runner + Chai for assertions
-3. Must implement Page Object Model (POM)
-4. Use a SINGLE shared WebDriver instance initialized in before() for all test cases
-5. Do NOT create a new driver per test
-6. All reusable actions and assertions must live inside the Page Object, not in the test file
-7. Test file should only call Page Object methods
-8. DO NOT hardcode locators or test data inside test files
+**1) FEATURE FILE (${featureFile})**
+Standard Gherkin with @TC tag above each Scenario.
 
-**PAGE OBJECT FILE (${pageObjectFileName}.js):**
-- Export class named "${pageObjectFileName}"
-- Constructor that accepts driver instance
-- All locators as class properties using By.css(), By.id(), By.xpath()
-- Reusable action methods (login, fillForm, clickButton, waitForElement, etc.)
-- Proper async/await handling
-- Import test data from data file
+**2) STEP DEFINITIONS (${stepsFile})**
+- const { Given, When, Then } = require('@cucumber/cucumber');
+- const { ${pageClass} } = require('../pages/${pageFile}');
+- const data = require('../data/testData.json');
+- Initialize this.${lower}Page = new ${pageClass}(this.driver) in the first Given
+- Steps call Page Object methods only
 
-**TEST FILE (${testFileName}):**
-- MUST import: const { ${pageObjectFileName} } = require('./${pageObjectFileName}');
-- Single WebDriver instance created in before() hook
-- Driver quit in after() hook
-- All test cases share the same driver instance
-- Use describe() and it() blocks
-- Import and instantiate Page Object
-- Call Page Object methods instead of direct interactions
-- NO hardcoded test data - reference data file values
+**3) PAGE OBJECT (${pageFile})**
+- const { By, until } = require('selenium-webdriver');
+- class ${pageClass} { constructor(driver) { this.driver = driver; ... } }
+- Locators defined as By.* in constructor
+- Reusable async methods + assertions inside the class
+- module.exports = { ${pageClass} };
 
-**DATA FILE (testData.json):**
-- Valid JSON with flat global structure (not nested per-scenario)
-- Store all test data
+**4) DATA FILE (testData.json)** — flat JSON.
 
-**OUTPUT FORMAT:**
-Output exactly in this format with the separators:
+**OUTPUT FORMAT — exact separators, no markdown fences, no extra text:**
+
+===FEATURE_FILE_START===
+===FEATURE_FILE_END===
+
+===STEPS_FILE_START===
+===STEPS_FILE_END===
 
 ===PAGE_OBJECT_START===
-// Page Object file content here
 ===PAGE_OBJECT_END===
 
-===TEST_FILE_START===
-// Test file content here
-===TEST_FILE_END===
-
 ===DATA_FILE_START===
-// JSON data file content here
 ===DATA_FILE_END===
 
-Do not include any other text, comments, or markdown code blocks.
-${gherkinScenarios ? `
-
-**GHERKIN INTEGRATION:**
-The following Gherkin scenarios have already been generated for these test cases. Your Page Object methods and test structure MUST align with these Gherkin steps so the code can serve as step definition implementations for BDD frameworks (e.g., cucumber-js). Each Given/When/Then step should map to a Page Object method.
-
-Gherkin Scenarios:
-${gherkinScenarios}
-` : ''}
+${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT:**\n${gherkinScenarios}\n` : ''}
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -164,53 +146,42 @@ ${gherkinScenarios}
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "AI Generation limit reached. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "AI Generation limit reached. Please try again later." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return new Response(JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      return new Response(
-        JSON.stringify({ error: "Failed to generate code. Please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Failed to generate code. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
-
     if (!content) {
-      console.error("No content received from AI");
-      return new Response(
-        JSON.stringify({ error: "Failed to generate code. Please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Failed to generate code. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const featureMatch = content.match(/===FEATURE_FILE_START===([\s\S]*?)===FEATURE_FILE_END===/);
+    const stepsMatch = content.match(/===STEPS_FILE_START===([\s\S]*?)===STEPS_FILE_END===/);
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
-    const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
     const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     return new Response(
       JSON.stringify({
+        featureFile: featureMatch?.[1]?.trim() || '',
+        testFile: stepsMatch?.[1]?.trim() || '',
         pageObject: pageObjectMatch?.[1]?.trim() || '',
-        testFile: testFileMatch?.[1]?.trim() || '',
         dataFile: dataFileMatch?.[1]?.trim() || '',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("generate-selenium error:", error);
-    return new Response(
-      JSON.stringify({ error: "Failed to generate code. Please try again." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Failed to generate code. Please try again." }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

@@ -57,8 +57,11 @@ serve(async (req) => {
     const { testCases, locators, testData } = sanitizePayload(body);
     const moduleName = String(body.moduleName || "Login").slice(0, 50);
     const gherkinScenarios = body.gherkinScenarios ? String(body.gherkinScenarios).slice(0, 10000) : "";
-    const pageObjectFileName = `${moduleName}Page`;
-    const testFileName = `${moduleName.toLowerCase()}.spec.ts`;
+    const lower = moduleName.toLowerCase();
+    const featureFile = `${lower}.feature`;
+    const stepsFile = `${lower}.steps.js`;
+    const pageFile = `${lower}.page.js`;
+    const pageClass = `${moduleName}Page`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -70,7 +73,7 @@ serve(async (req) => {
     }
 
     const prompt = `
-You are a senior QA automation engineer expert in Playwright.
+You are a senior QA automation engineer expert in Playwright + Cucumber BDD (JavaScript only, NO TypeScript).
 
 Given this test data:
 
@@ -83,65 +86,61 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate Playwright test code with THREE separate outputs:
+Generate a Cucumber BDD project for Playwright with FOUR outputs:
 
-**IMPORTANT FILE NAMING:**
-- The Page Object class MUST be named "${pageObjectFileName}" and exported as such
-- The Test File MUST import the page object using: import { ${pageObjectFileName} } from './${pageObjectFileName}';
-- File names: Page Object = "${pageObjectFileName}.ts", Test File = "${testFileName}"
+**STRICT RULES:**
+- Pure JavaScript only (NO TypeScript, NO type annotations, NO interfaces, NO generics)
+- Use require() and module.exports — NEVER import/export ES syntax
+- Each test case = one Gherkin Scenario tagged with its TC id (e.g. @TC_LOGIN_001)
+- Reuse identical Gherkin steps across scenarios (deduplicate)
+- Step definitions use this.page and this.${lower}Page (World context)
+- NO hardcoded test data inside steps or page object — load from testData.json
+- NO hardcoded locators inside step definitions — only inside the Page Object
 
-**REQUIREMENTS:**
-1. Use Playwright Test Runner (@playwright/test)
-2. Must implement Page Object Model (POM)
-3. Each test file should create ONE page instance per file (not global across multiple files)
-4. Use beforeEach to instantiate the Page Object
-5. All assertions should preferably be inside the Page Object methods
-6. DO NOT hardcode locators or test data inside test files
+**1) FEATURE FILE (${featureFile})**
+- Standard Gherkin: Feature, scenario tags (@TC_xxx above each Scenario), Scenario, Given/When/Then/And
+- Concise, declarative, business-readable language
+- One scenario per test case, in the same order
 
-**PAGE OBJECT FILE (${pageObjectFileName}.ts):**
-- Export class named "${pageObjectFileName}"
-- All locators as class properties (imported or defined)
-- Reusable action methods (login, fillForm, clickButton, etc.)
-- Use getByRole, getByLabel, getByPlaceholder, getByText where possible
-- Fallback to locator() for CSS/XPath selectors
-- Import test data from data file
+**2) STEP DEFINITIONS (${stepsFile})**
+- const { Given, When, Then } = require('@cucumber/cucumber');
+- const { ${pageClass} } = require('../pages/${pageFile}');
+- const data = require('../data/testData.json');
+- Each step body calls Page Object methods via this.${lower}Page
+- Initialize this.${lower}Page = new ${pageClass}(this.page) inside the first Given step
+- Reuse one definition for steps that repeat across scenarios
 
-**TEST FILE (${testFileName}):**
-- MUST import: import { ${pageObjectFileName} } from './${pageObjectFileName}';
-- Clean and high-level, calling Page Object methods
-- Use describe() block for grouping
-- Each test case as separate test() block
-- Use beforeEach to create Page Object instance
-- NO hardcoded test data - reference data file values
+**3) PAGE OBJECT (${pageFile})**
+- const { expect } = require('@playwright/test');
+- class ${pageClass} { constructor(page) { this.page = page; ... } ... }
+- All locators defined in constructor as page.locator(...) / page.getByRole(...) etc.
+- High-level reusable methods (navigate, enterUsername, submitLoginForm, verifyErrorMessage, ...)
+- Assertions live inside Page Object methods (using expect)
+- module.exports = { ${pageClass} };
 
-**DATA FILE (testData.json):**
-- Valid JSON with flat global structure (not nested per-scenario)
-- Store all test data: username, password, invalidUsername, invalidPassword, emptyUsername, emptyPassword, errorMessage, etc.
+**4) DATA FILE (testData.json)**
+- Valid JSON, flat global structure
+- All credentials, expected texts, error messages used by the steps
 
-**OUTPUT FORMAT:**
-Output exactly in this format with the separators:
+**OUTPUT FORMAT — exact separators, no markdown fences, no extra text:**
+
+===FEATURE_FILE_START===
+// .feature content
+===FEATURE_FILE_END===
+
+===STEPS_FILE_START===
+// step definitions JS content
+===STEPS_FILE_END===
 
 ===PAGE_OBJECT_START===
-// Page Object file content here
+// page object JS content
 ===PAGE_OBJECT_END===
 
-===TEST_FILE_START===
-// Test file content here
-===TEST_FILE_END===
-
 ===DATA_FILE_START===
-// JSON data file content here
+// JSON content
 ===DATA_FILE_END===
 
-Do not include any other text, comments, or markdown code blocks.
-${gherkinScenarios ? `
-
-**GHERKIN INTEGRATION:**
-The following Gherkin scenarios have already been generated for these test cases. Your Page Object methods and test structure MUST align with these Gherkin steps so the code can serve as step definition implementations for BDD frameworks (e.g., cucumber-js, playwright-bdd). Each Given/When/Then step should map to a Page Object method.
-
-Gherkin Scenarios:
-${gherkinScenarios}
-` : ''}
+${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT** (align step wording with this where possible):\n${gherkinScenarios}\n` : ''}
 `;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -190,14 +189,16 @@ ${gherkinScenarios}
       );
     }
 
+    const featureMatch = content.match(/===FEATURE_FILE_START===([\s\S]*?)===FEATURE_FILE_END===/);
+    const stepsMatch = content.match(/===STEPS_FILE_START===([\s\S]*?)===STEPS_FILE_END===/);
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
-    const testFileMatch = content.match(/===TEST_FILE_START===([\s\S]*?)===TEST_FILE_END===/);
     const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     return new Response(
       JSON.stringify({
+        featureFile: featureMatch?.[1]?.trim() || '',
+        testFile: stepsMatch?.[1]?.trim() || '',
         pageObject: pageObjectMatch?.[1]?.trim() || '',
-        testFile: testFileMatch?.[1]?.trim() || '',
         dataFile: dataFileMatch?.[1]?.trim() || '',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
