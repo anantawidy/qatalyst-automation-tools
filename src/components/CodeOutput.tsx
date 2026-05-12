@@ -253,11 +253,11 @@ const CodeOutput = ({
       case "gherkin":
         return { icon: <FileText className="h-5 w-5 text-purple-400" />, title: "Gherkin Scenarios", color: "text-purple-300" };
       case "playwright":
-        return { icon: <Code className="h-5 w-5 text-green-400" />, title: "Playwright (POM)", color: "text-green-300" };
+        return { icon: <Code className="h-5 w-5 text-green-400" />, title: "Playwright (Cucumber BDD, JS)", color: "text-green-300" };
       case "selenium":
-        return { icon: <Code className="h-5 w-5 text-orange-400" />, title: "Selenium (POM + Mocha)", color: "text-orange-300" };
+        return { icon: <Code className="h-5 w-5 text-orange-400" />, title: "Selenium (Cucumber BDD, JS)", color: "text-orange-300" };
       case "cypress":
-        return { icon: <Code className="h-5 w-5 text-cyan-400" />, title: "Cypress (Mocha + Commands)", color: "text-cyan-300" };
+        return { icon: <Code className="h-5 w-5 text-cyan-400" />, title: "Cypress (Cucumber BDD, JS)", color: "text-cyan-300" };
       case "robot":
         return { icon: <Code className="h-5 w-5 text-rose-400" />, title: "Robot Framework", color: "text-rose-300" };
     }
