@@ -380,20 +380,58 @@ const CodeOutput = ({
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-          <TabsList className="grid w-full grid-cols-3 bg-slate-700 mb-4">
+          <TabsList className={`grid w-full ${type === "robot" ? "grid-cols-3" : "grid-cols-4"} bg-slate-700 mb-4`}>
+            {type !== "robot" && (
+              <TabsTrigger value="featureFile" className="data-[state=active]:bg-blue-600">
+                <FileText className="h-4 w-4 mr-2" />
+                Feature
+              </TabsTrigger>
+            )}
             <TabsTrigger value="pageObject" className="data-[state=active]:bg-blue-600">
               <FileCode className="h-4 w-4 mr-2" />
-              {type === "cypress" ? "Commands" : type === "robot" ? "Keywords" : "Page Object"}
+              {type === "robot" ? "Keywords" : "Page Object"}
             </TabsTrigger>
             <TabsTrigger value="testFile" className="data-[state=active]:bg-blue-600">
               <Code className="h-4 w-4 mr-2" />
-              Test File
+              {type === "robot" ? "Test File" : "Step Defs"}
             </TabsTrigger>
             <TabsTrigger value="dataFile" className="data-[state=active]:bg-blue-600">
               <Database className="h-4 w-4 mr-2" />
               Data File
             </TabsTrigger>
           </TabsList>
+
+          {type !== "robot" && (
+            <TabsContent value="featureFile" className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400 font-mono">features/{fileNames.featureFile}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(pomCode.featureFile, "feature")}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    {copiedFeature ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadCode(pomCode.featureFile, fileNames.featureFile)}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                value={pomCode.featureFile}
+                onChange={(e) => setPomCode(prev => ({ ...prev, featureFile: e.target.value }))}
+                className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none text-purple-300`}
+                placeholder="Gherkin .feature content will appear here..."
+              />
+            </TabsContent>
+          )}
 
           <TabsContent value="pageObject" className="space-y-3">
             <div className="flex items-center justify-between">
