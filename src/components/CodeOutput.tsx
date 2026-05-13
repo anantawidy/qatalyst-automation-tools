@@ -495,35 +495,37 @@ const CodeOutput = ({
             />
           </TabsContent>
 
-          <TabsContent value="dataFile" className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-400 font-mono">/data/{fileNames.dataFile}</span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard(pomCode.dataFile, "data")}
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                >
-                  {copiedData ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => downloadCode(pomCode.dataFile, fileNames.dataFile)}
-                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
+          {type === "robot" && (
+            <TabsContent value="dataFile" className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400 font-mono">/data/{fileNames.dataFile}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(pomCode.dataFile, "data")}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    {copiedData ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadCode(pomCode.dataFile, fileNames.dataFile)}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-            <Textarea
-              value={pomCode.dataFile}
-              onChange={(e) => setPomCode(prev => ({ ...prev, dataFile: e.target.value }))}
-              className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none text-yellow-300`}
-              placeholder="JSON data file will appear here..."
-            />
-          </TabsContent>
+              <Textarea
+                value={pomCode.dataFile}
+                onChange={(e) => setPomCode(prev => ({ ...prev, dataFile: e.target.value }))}
+                className={`bg-slate-900 border-slate-600 font-mono text-sm min-h-[300px] resize-none text-yellow-300`}
+                placeholder="Data file will appear here..."
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </CardContent>
     </Card>
