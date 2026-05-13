@@ -46,6 +46,7 @@ const Index = () => {
 
   const handleSelectFrameworkAfterGherkin = (type: FrameworkType) => {
     setFrameworkCode("");
+    setAutomationMode("classic");
     setFrameworkAfterGherkin(type);
   };
 
