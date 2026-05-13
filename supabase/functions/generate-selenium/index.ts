@@ -96,6 +96,8 @@ Generate a Cucumber BDD project for Selenium with FOUR outputs.
 
 **1) FEATURE FILE (${featureFile})**
 Standard Gherkin with @TC tag above each Scenario.
+- USE Scenario Outline + Examples table when multiple test cases share the same steps but vary by data. Include a 'tc' column for Test Case IDs and tag the outline with all related @TC ids. Keep single-data tests as plain Scenario.
+- In step definitions, use {string}/{int} parameters to consume Examples values.
 
 **2) STEP DEFINITIONS (${stepsFile})**
 - const { Given, When, Then } = require('@cucumber/cucumber');
