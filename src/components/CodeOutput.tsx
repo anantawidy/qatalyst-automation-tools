@@ -239,12 +239,12 @@ const CodeOutput = ({
           featureFile: `${lower}.feature`,
           pageObject: `${lower}.page.js`,
           testFile: `${lower}.steps.js`,
-          dataFile: "testData.json",
+          dataFile: "",
         };
       case "robot":
         return { featureFile: "", pageObject: "keywords.robot", testFile: "tests.robot", dataFile: "testdata.py" };
       default:
-        return { featureFile: "", pageObject: `${lower}.page.js`, testFile: `${lower}.steps.js`, dataFile: "testData.json" };
+        return { featureFile: "", pageObject: `${lower}.page.js`, testFile: `${lower}.steps.js`, dataFile: "" };
     }
   };
 
@@ -380,7 +380,7 @@ const CodeOutput = ({
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-          <TabsList className={`grid w-full ${type === "robot" ? "grid-cols-3" : "grid-cols-4"} bg-slate-700 mb-4`}>
+          <TabsList className={`grid w-full ${type === "robot" ? "grid-cols-3" : "grid-cols-3"} bg-slate-700 mb-4`}>
             {type !== "robot" && (
               <TabsTrigger value="featureFile" className="data-[state=active]:bg-blue-600">
                 <FileText className="h-4 w-4 mr-2" />
@@ -395,10 +395,12 @@ const CodeOutput = ({
               <Code className="h-4 w-4 mr-2" />
               {type === "robot" ? "Test File" : "Step Defs"}
             </TabsTrigger>
-            <TabsTrigger value="dataFile" className="data-[state=active]:bg-blue-600">
-              <Database className="h-4 w-4 mr-2" />
-              Data File
-            </TabsTrigger>
+            {type === "robot" && (
+              <TabsTrigger value="dataFile" className="data-[state=active]:bg-blue-600">
+                <Database className="h-4 w-4 mr-2" />
+                Data File
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {type !== "robot" && (
