@@ -83,7 +83,7 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate a Cucumber BDD project for Selenium with FOUR outputs.
+Generate a Cucumber BDD project for Selenium with THREE outputs (NO data file).
 
 **STRICT RULES:**
 - Pure JavaScript only (NO TypeScript)
@@ -91,7 +91,9 @@ Generate a Cucumber BDD project for Selenium with FOUR outputs.
 - Each test case = one Gherkin Scenario tagged @TC_xxx
 - Reuse identical Gherkin steps across scenarios
 - Step definitions use this.driver and this.${lower}Page from the Cucumber World
-- NO hardcoded test data inside steps/page (load from testData.json)
+- **DO NOT create or import any testData.json / data.json file. NO require('../data/...').**
+- All variable test values MUST live inside the Examples table of the .feature file
+- Static values (baseUrl, fixed creds) MUST be hardcoded directly inside the step definition — NEVER abstracted to a data file
 - NO hardcoded locators inside step definitions
 
 **1) FEATURE FILE (${featureFile})**
@@ -102,7 +104,9 @@ Standard Gherkin with @TC tag above each Scenario.
 **2) STEP DEFINITIONS (${stepsFile})**
 - const { Given, When, Then } = require('@cucumber/cucumber');
 - const { ${pageClass} } = require('../pages/${pageFile}');
-- const data = require('../data/testData.json');
+- **DO NOT** require any data/testData/json file
+- Use {string}/{int} parameters in step patterns to consume values directly from the Examples table
+- For steps with no varying data (like navigate), hardcode the value (e.g. baseUrl) directly inside the step body
 - Initialize this.${lower}Page = new ${pageClass}(this.driver) in the first Given
 - Steps call Page Object methods only
 
@@ -112,8 +116,6 @@ Standard Gherkin with @TC tag above each Scenario.
 - Locators defined as By.* in constructor
 - Reusable async methods + assertions inside the class
 - module.exports = { ${pageClass} };
-
-**4) DATA FILE (testData.json)** — flat JSON.
 
 **OUTPUT FORMAT — exact separators, no markdown fences, no extra text:**
 
@@ -125,9 +127,6 @@ Standard Gherkin with @TC tag above each Scenario.
 
 ===PAGE_OBJECT_START===
 ===PAGE_OBJECT_END===
-
-===DATA_FILE_START===
-===DATA_FILE_END===
 
 ${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT:**\n${gherkinScenarios}\n` : ''}
 `;
@@ -170,14 +169,13 @@ ${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT:**\n${gherkinScenarios}\n` : 
     const featureMatch = content.match(/===FEATURE_FILE_START===([\s\S]*?)===FEATURE_FILE_END===/);
     const stepsMatch = content.match(/===STEPS_FILE_START===([\s\S]*?)===STEPS_FILE_END===/);
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
-    const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     return new Response(
       JSON.stringify({
         featureFile: featureMatch?.[1]?.trim() || '',
         testFile: stepsMatch?.[1]?.trim() || '',
         pageObject: pageObjectMatch?.[1]?.trim() || '',
-        dataFile: dataFileMatch?.[1]?.trim() || '',
+        dataFile: '',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

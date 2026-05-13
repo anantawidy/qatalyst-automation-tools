@@ -86,7 +86,7 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate a Cucumber BDD project for Playwright with FOUR outputs:
+Generate a Cucumber BDD project for Playwright with THREE outputs (NO data file):
 
 **STRICT RULES:**
 - Pure JavaScript only (NO TypeScript, NO type annotations, NO interfaces, NO generics)
@@ -94,7 +94,9 @@ Generate a Cucumber BDD project for Playwright with FOUR outputs:
 - Each test case = one Gherkin Scenario tagged with its TC id (e.g. @TC_LOGIN_001)
 - Reuse identical Gherkin steps across scenarios (deduplicate)
 - Step definitions use this.page and this.${lower}Page (World context)
-- NO hardcoded test data inside steps or page object — load from testData.json
+- **DO NOT create or import any testData.json / data.json file. NO require('../data/...').**
+- All variable test values MUST live inside the Examples table of the .feature file
+- Static values (baseUrl, fixed admin creds, fixed URLs) MUST be hardcoded directly inside the step definition or page object — NEVER abstracted to a data file
 - NO hardcoded locators inside step definitions — only inside the Page Object
 
 **1) FEATURE FILE (${featureFile})**
@@ -109,10 +111,11 @@ Generate a Cucumber BDD project for Playwright with FOUR outputs:
 **2) STEP DEFINITIONS (${stepsFile})**
 - const { Given, When, Then } = require('@cucumber/cucumber');
 - const { ${pageClass} } = require('../pages/${pageFile}');
-- const data = require('../data/testData.json');
-- Use {string} / {int} parameters in step patterns to consume Examples values
+- **DO NOT** require any data/testData/json file
+- Use {string} / {int} parameters in step patterns to consume values directly from the Examples table
 - Each step body calls Page Object methods via this.${lower}Page
 - Initialize this.${lower}Page = new ${pageClass}(this.page) inside the first Given step
+- For steps with no varying data (like navigate), hardcode the value (e.g. baseUrl) directly inside the step body
 - Reuse one definition for steps that repeat across scenarios
 
 **3) PAGE OBJECT (${pageFile})** — Playwright SEMANTIC LOCATORS only
@@ -138,10 +141,6 @@ Generate a Cucumber BDD project for Playwright with FOUR outputs:
 - Assertions inside Page Object methods using expect()
 - module.exports = { ${pageClass} };
 
-**4) DATA FILE (testData.json)**
-- Valid JSON, flat global structure
-- Only sensitive/shared data (base URL, valid admin credentials). Do NOT duplicate data already inlined in Examples tables.
-
 **OUTPUT FORMAT — exact separators, no markdown fences, no extra text:**
 
 ===FEATURE_FILE_START===
@@ -155,10 +154,6 @@ Generate a Cucumber BDD project for Playwright with FOUR outputs:
 ===PAGE_OBJECT_START===
 // page object JS content
 ===PAGE_OBJECT_END===
-
-===DATA_FILE_START===
-// JSON content
-===DATA_FILE_END===
 
 ${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT** (align step wording with this where possible):\n${gherkinScenarios}\n` : ''}
 `;
@@ -212,14 +207,13 @@ ${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT** (align step wording with th
     const featureMatch = content.match(/===FEATURE_FILE_START===([\s\S]*?)===FEATURE_FILE_END===/);
     const stepsMatch = content.match(/===STEPS_FILE_START===([\s\S]*?)===STEPS_FILE_END===/);
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
-    const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     return new Response(
       JSON.stringify({
         featureFile: featureMatch?.[1]?.trim() || '',
         testFile: stepsMatch?.[1]?.trim() || '',
         pageObject: pageObjectMatch?.[1]?.trim() || '',
-        dataFile: dataFileMatch?.[1]?.trim() || '',
+        dataFile: '',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
