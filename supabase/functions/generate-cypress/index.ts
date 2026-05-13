@@ -95,6 +95,8 @@ Generate a Cucumber BDD project for Cypress with FOUR outputs.
 - NO hardcoded locators in step definitions
 
 **1) FEATURE FILE (${featureFile})** — standard Gherkin with @TC tag.
+- USE Scenario Outline + Examples table when multiple test cases share the same steps but vary by data. Include a 'tc' column for Test Case IDs and tag the outline with all related @TC ids. Keep single-data tests as plain Scenario.
+- Step definitions must use {string}/{int} parameters to consume Examples values.
 
 **2) STEP DEFINITIONS (${stepsFile})**
 - const { Given, When, Then } = require('@badeball/cypress-cucumber-preprocessor');
