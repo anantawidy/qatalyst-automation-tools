@@ -83,7 +83,7 @@ ${JSON.stringify(locators, null, 2)}
 Test Data:
 ${JSON.stringify(testData, null, 2)}
 
-Generate a Cucumber BDD project for Cypress with FOUR outputs.
+Generate a Cucumber BDD project for Cypress with THREE outputs (NO data file).
 
 **STRICT RULES:**
 - Pure JavaScript (NO TypeScript)
@@ -91,7 +91,9 @@ Generate a Cucumber BDD project for Cypress with FOUR outputs.
 - Each test case = one Gherkin Scenario tagged @TC_xxx
 - Reuse identical Gherkin steps across scenarios
 - Step definitions instantiate the Page Object as a singleton (const ${lower}Page = new ${pageClass}();)
-- NO hardcoded test data in steps/page (load from testData.json)
+- **DO NOT create or import any testData.json / fixture data file. NO require('../../fixtures/...').**
+- All variable test values MUST live inside the Examples table of the .feature file
+- Static values (baseUrl, fixed creds) MUST be hardcoded directly inside the step definition — NEVER abstracted to a data file
 - NO hardcoded locators in step definitions
 
 **1) FEATURE FILE (${featureFile})** — standard Gherkin with @TC tag.
@@ -101,7 +103,9 @@ Generate a Cucumber BDD project for Cypress with FOUR outputs.
 **2) STEP DEFINITIONS (${stepsFile})**
 - const { Given, When, Then } = require('@badeball/cypress-cucumber-preprocessor');
 - const { ${pageClass} } = require('../pages/${pageFile}');
-- const data = require('../../fixtures/testData.json');
+- **DO NOT** require any fixture/testData/json file
+- Use {string}/{int} parameters in step patterns to consume values directly from the Examples table
+- For steps with no varying data (like visit), hardcode the value (e.g. baseUrl) directly inside the step body
 - Each step body delegates to the Page Object
 
 **3) PAGE OBJECT (${pageFile})**
@@ -110,8 +114,6 @@ Generate a Cucumber BDD project for Cypress with FOUR outputs.
 - Reusable methods using cy.get/cy.visit/etc.
 - Assertions via cy.*.should() inside Page Object methods
 - module.exports = { ${pageClass} };
-
-**4) DATA FILE (testData.json)** — flat JSON used as a Cypress fixture.
 
 **OUTPUT FORMAT — exact separators, no markdown fences, no extra text:**
 
@@ -123,9 +125,6 @@ Generate a Cucumber BDD project for Cypress with FOUR outputs.
 
 ===PAGE_OBJECT_START===
 ===PAGE_OBJECT_END===
-
-===DATA_FILE_START===
-===DATA_FILE_END===
 
 ${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT:**\n${gherkinScenarios}\n` : ''}
 `;
@@ -168,14 +167,13 @@ ${gherkinScenarios ? `\n**EXISTING GHERKIN CONTEXT:**\n${gherkinScenarios}\n` : 
     const featureMatch = content.match(/===FEATURE_FILE_START===([\s\S]*?)===FEATURE_FILE_END===/);
     const stepsMatch = content.match(/===STEPS_FILE_START===([\s\S]*?)===STEPS_FILE_END===/);
     const pageObjectMatch = content.match(/===PAGE_OBJECT_START===([\s\S]*?)===PAGE_OBJECT_END===/);
-    const dataFileMatch = content.match(/===DATA_FILE_START===([\s\S]*?)===DATA_FILE_END===/);
 
     return new Response(
       JSON.stringify({
         featureFile: featureMatch?.[1]?.trim() || '',
         testFile: stepsMatch?.[1]?.trim() || '',
         pageObject: pageObjectMatch?.[1]?.trim() || '',
-        dataFile: dataFileMatch?.[1]?.trim() || '',
+        dataFile: '',
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
