@@ -112,6 +112,26 @@ TRANSFORMATION RULES
    Vary expected outcome phrasing across scenarios.
    Include validation depth where applicable (e.g., page content checks, element visibility).
 
+9. Scenario Outline (IMPORTANT):
+   When MULTIPLE test cases share the SAME steps but only differ in input data
+   (e.g. login with various invalid credentials, form validations with different field values),
+   MERGE them into ONE "Scenario Outline" with an "Examples:" table instead of repeating Scenarios.
+   - Use angle-bracket placeholders in steps: <username>, <password>, <error_message>
+   - Add a "tc" column in Examples to track Test Case IDs
+   - Quote string placeholders in steps: When the user enters username "<username>"
+   - If a test case has only ONE data set, keep it as a regular Scenario (not Outline)
+   - Example:
+       Scenario Outline: Login attempt with invalid credentials
+         Given the user is on the login page
+         When the user enters username "<username>"
+         And the user enters password "<password>"
+         And the user clicks the Login button
+         Then an error message "<error_message>" should be displayed
+         Examples:
+           | tc           | username     | password     | error_message                      |
+           | TC_LOGIN_001 | invalid_user | valid_pass   | Username and password do not match |
+           | TC_LOGIN_002 | valid_user   | invalid_pass | Username and password do not match |
+
 ══════════════════════════════════
 FORMATTING RULES
 ══════════════════════════════════
