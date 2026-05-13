@@ -100,27 +100,47 @@ Generate a Cucumber BDD project for Playwright with FOUR outputs:
 **1) FEATURE FILE (${featureFile})**
 - Standard Gherkin: Feature, scenario tags (@TC_xxx above each Scenario), Scenario, Given/When/Then/And
 - Concise, declarative, business-readable language
-- One scenario per test case, in the same order
+- **USE Scenario Outline + Examples** when multiple test cases share the same steps but vary by data (e.g. login with different invalid credentials, form validations).
+  - Include a 'tc' column in Examples to track Test Case IDs (e.g. | tc | username | password | error_message |)
+  - Use angle-bracket placeholders <username>, <password>, <error_message> in the steps
+  - Tag the Scenario Outline with all related TC ids (e.g. @TC_LOGIN_001 @TC_LOGIN_002)
+- Keep single-data test cases as regular Scenario (not Outline)
 
 **2) STEP DEFINITIONS (${stepsFile})**
 - const { Given, When, Then } = require('@cucumber/cucumber');
 - const { ${pageClass} } = require('../pages/${pageFile}');
 - const data = require('../data/testData.json');
+- Use {string} / {int} parameters in step patterns to consume Examples values
 - Each step body calls Page Object methods via this.${lower}Page
 - Initialize this.${lower}Page = new ${pageClass}(this.page) inside the first Given step
 - Reuse one definition for steps that repeat across scenarios
 
-**3) PAGE OBJECT (${pageFile})**
+**3) PAGE OBJECT (${pageFile})** — Playwright SEMANTIC LOCATORS only
 - const { expect } = require('@playwright/test');
-- class ${pageClass} { constructor(page) { this.page = page; ... } ... }
-- All locators defined in constructor as page.locator(...) / page.getByRole(...) etc.
-- High-level reusable methods (navigate, enterUsername, submitLoginForm, verifyErrorMessage, ...)
-- Assertions live inside Page Object methods (using expect)
+- class ${pageClass} { constructor(page) { this.page = page; /* locators here */ } ... }
+- **MANDATORY: All locators MUST be arrow-function getters using Playwright semantic locators**
+  Example:
+    this.usernameInput = () => this.page.getByLabel('Username');
+    this.passwordInput = () => this.page.getByLabel('Password');
+    this.loginButton  = () => this.page.getByRole('button', { name: 'Login' });
+    this.errorBox     = () => this.page.getByRole('alert');
+  Dynamic example:
+    this.productByName = (name) => this.page.getByText(name, { exact: true });
+- **Locator priority (use first that applies):**
+  1. getByRole('button'|'textbox'|'combobox'|'checkbox'|'alert'|..., { name: '...' })
+  2. getByLabel('...')
+  3. getByPlaceholder('...')
+  4. getByText('...', { exact: true })
+  5. getByTestId('...')
+  6. page.locator('css') — LAST RESORT only
+- **NEVER use** page.locator('id=...'), page.locator('class=...'), or raw '#id'/'.class' selectors when a semantic locator can express the element
+- Methods invoke locators with parens: await this.usernameInput().fill(value);
+- Assertions inside Page Object methods using expect()
 - module.exports = { ${pageClass} };
 
 **4) DATA FILE (testData.json)**
 - Valid JSON, flat global structure
-- All credentials, expected texts, error messages used by the steps
+- Only sensitive/shared data (base URL, valid admin credentials). Do NOT duplicate data already inlined in Examples tables.
 
 **OUTPUT FORMAT — exact separators, no markdown fences, no extra text:**
 
