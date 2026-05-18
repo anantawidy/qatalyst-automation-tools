@@ -328,7 +328,7 @@ const CodeOutput = ({
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button
+              <Button aria-label="Copy code to clipboard"
                 variant="outline"
                 size="sm"
                 onClick={() => copyToClipboard(gherkinCode, "gherkin")}
@@ -336,7 +336,7 @@ const CodeOutput = ({
               >
                 <Copy className="h-4 w-4" />
               </Button>
-              <Button
+              <Button aria-label="Download file"
                 variant="outline"
                 size="sm"
                 onClick={() => downloadCode(gherkinCode, "test.feature")}
@@ -408,7 +408,7 @@ const CodeOutput = ({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-400 font-mono">features/{fileNames.featureFile}</span>
                 <div className="flex gap-2">
-                  <Button
+                  <Button aria-label="Copy code to clipboard"
                     variant="outline"
                     size="sm"
                     onClick={() => copyToClipboard(pomCode.featureFile, "feature")}
@@ -416,7 +416,7 @@ const CodeOutput = ({
                   >
                     {copiedFeature ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
-                  <Button
+                  <Button aria-label="Download file"
                     variant="outline"
                     size="sm"
                     onClick={() => downloadCode(pomCode.featureFile, fileNames.featureFile)}
@@ -439,7 +439,7 @@ const CodeOutput = ({
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-400 font-mono">{fileNames.pageObject}</span>
               <div className="flex gap-2">
-                <Button
+                <Button aria-label="Copy code to clipboard"
                   variant="outline"
                   size="sm"
                   onClick={() => copyToClipboard(pomCode.pageObject, "po")}
@@ -447,7 +447,7 @@ const CodeOutput = ({
                 >
                   {copiedPO ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
-                <Button
+                <Button aria-label="Download file"
                   variant="outline"
                   size="sm"
                   onClick={() => downloadCode(pomCode.pageObject, fileNames.pageObject)}
@@ -469,7 +469,7 @@ const CodeOutput = ({
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-400 font-mono">{fileNames.testFile}</span>
               <div className="flex gap-2">
-                <Button
+                <Button aria-label="Copy code to clipboard"
                   variant="outline"
                   size="sm"
                   onClick={() => copyToClipboard(pomCode.testFile, "test")}
@@ -477,7 +477,7 @@ const CodeOutput = ({
                 >
                   {copiedTest ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
-                <Button
+                <Button aria-label="Download file"
                   variant="outline"
                   size="sm"
                   onClick={() => downloadCode(pomCode.testFile, fileNames.testFile)}
@@ -500,7 +500,7 @@ const CodeOutput = ({
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-400 font-mono">/data/{fileNames.dataFile}</span>
                 <div className="flex gap-2">
-                  <Button
+                  <Button aria-label="Copy code to clipboard"
                     variant="outline"
                     size="sm"
                     onClick={() => copyToClipboard(pomCode.dataFile, "data")}
@@ -508,7 +508,7 @@ const CodeOutput = ({
                   >
                     {copiedData ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
-                  <Button
+                  <Button aria-label="Download file"
                     variant="outline"
                     size="sm"
                     onClick={() => downloadCode(pomCode.dataFile, fileNames.dataFile)}

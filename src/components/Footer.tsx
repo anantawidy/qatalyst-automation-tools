@@ -22,6 +22,7 @@ const Footer = () => {
                 href="https://github.com" 
                 target="_blank" 
                 rel="noopener noreferrer"
+                aria-label="QAtalyst on GitHub"
                 className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
               >
                 <Github className="h-5 w-5 text-slate-400 hover:text-white" />
@@ -30,12 +31,14 @@ const Footer = () => {
                 href="https://linkedin.com/in/ananta-widy"
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="QAtalyst on LinkedIn"
                 className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
               >
                 <Linkedin className="h-5 w-5 text-slate-400 hover:text-blue-400" />
               </a>
               <a 
                 href="mailto:qatalyst.project@gmail.com"
+                aria-label="Email QAtalyst"
                 className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors"
               >
                 <Mail className="h-5 w-5 text-slate-400 hover:text-green-400" />

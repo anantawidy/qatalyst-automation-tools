@@ -91,7 +91,7 @@ const Index = () => {
                 />
               </div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                QAtalyst
+                QAtalyst — AI-Powered Test Automation Generator
               </h1>
             </div>
             <div className="flex items-center space-x-2 text-base text-emerald-400">
