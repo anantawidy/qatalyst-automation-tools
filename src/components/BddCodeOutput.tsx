@@ -250,7 +250,7 @@ const BddCodeOutput = ({ framework, testData, gherkinScenarios }: BddCodeOutputP
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-400 font-mono">{t.folder}{fNames[t.key]}</span>
                 <div className="flex gap-2">
-                  <Button
+                  <Button aria-label="Copy code to clipboard"
                     variant="outline"
                     size="sm"
                     onClick={() => copyToClipboard(code[t.key], t.key)}
@@ -258,7 +258,7 @@ const BddCodeOutput = ({ framework, testData, gherkinScenarios }: BddCodeOutputP
                   >
                     {copiedTab === t.key ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
-                  <Button
+                  <Button aria-label="Download file"
                     variant="outline"
                     size="sm"
                     onClick={() => downloadCode(code[t.key], fNames[t.key])}
