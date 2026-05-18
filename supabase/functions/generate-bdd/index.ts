@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const MAX_TEST_CASES = 50;
-const MAX_STRING_LENGTH = 1000;
+const MAX_STRING_LENGTH = Number.MAX_SAFE_INTEGER;
 
 function validatePayload(body: any): string | null {
   if (!body?.gherkinScenarios || typeof body.gherkinScenarios !== "string") {
