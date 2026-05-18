@@ -136,7 +136,19 @@ Generate a Cucumber BDD project for Playwright with THREE outputs (NO data file)
   4. getByText('...', { exact: true })
   5. getByTestId('...')
   6. page.locator('css') — LAST RESORT only
-- **NEVER use** page.locator('id=...'), page.locator('class=...'), or raw '#id'/'.class' selectors when a semantic locator can express the element
+- **NEVER use** page.locator('id=...'), page.locator('class=...'), or raw 'id=xxx'/'class=xxx' Playwright engine selectors
+
+- **CSV LOCATOR CONVERSION RULES** — when the Locators map contains raw attribute-style values (id="...", class="...", name="...", data-test="...", data-testid="...", xpath="..."), and no semantic equivalent exists, you MUST convert to correct Playwright CSS/XPath selectors:
+  1. id="xxx"          → this.x = () => this.page.locator('#xxx')
+  2. class="a"         → this.x = () => this.page.locator('.a')
+     class="a b"       → this.x = () => this.page.locator('.a.b')
+  3. name="xxx"        → this.x = () => this.page.locator('[name="xxx"]')
+  4. data-test="xxx"   → this.x = () => this.page.locator('[data-test="xxx"]')
+  5. data-testid="xxx" → this.x = () => this.page.locator('[data-testid="xxx"]')
+  6. xpath="//..."     → this.x = () => this.page.locator('//...')
+  - id and class use shorthand (# and .). ALL other attributes MUST use square brackets [attr="value"].
+  - NEVER write locator('data-test="error"') without brackets — that is always wrong.
+  - Always wrap in arrow-function getter, e.g. this.errorMessage = () => this.page.locator('[data-test="error"]')
 - Methods invoke locators with parens: await this.usernameInput().fill(value);
 - Assertions inside Page Object methods using expect()
 - module.exports = { ${pageClass} };
