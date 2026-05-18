@@ -215,7 +215,7 @@ TC004,Verify forgot password link navigation,Click forgot password link,Password
           <div className="h-14 w-14 rounded-full bg-slate-700 flex items-center justify-center mb-4">
             <FileText className="h-7 w-7 text-blue-400" />
           </div>
-          <h4 className="text-base font-medium text-white mb-2">Upload Test Cases</h4>
+          <h3 className="text-base font-medium text-white mb-2">Upload Test Cases</h3>
           <p className="text-slate-400 text-sm mb-1">
             Single CSV file with all test data
           </p>

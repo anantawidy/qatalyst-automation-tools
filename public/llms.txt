@@ -1,0 +1,9 @@
+# QAtalyst
+
+> AI-powered test automation generator that turns CSV test cases into Gherkin scenarios and ready-to-run automation code for Playwright, Selenium, Cypress, and Robot Framework.
+
+QAtalyst accepts a single CSV containing Test Case ID, Description, Steps, Expected Result, Locators, and Test Data. It uses Google Gemini Flash via secure backend functions to produce BDD feature files, page objects, and step definitions.
+
+## Pages
+
+- [Home](/): Upload a CSV, generate Gherkin, then generate framework code (Playwright, Selenium, Cypress, Robot Framework).
